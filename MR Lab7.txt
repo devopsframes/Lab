@@ -1,0 +1,166 @@
+MR Lab7 : Joins Using MapReduce
+
+
+[training@localhost ~]$ cat > dept
+11,marketing,hyd
+12,hr,del
+13,finance,hyd
+[training@localhost ~]$ cat emp
+101,vino,26000,m,11
+102,Sri,25000,f,11
+103,mohan,13000,m,13
+104,lokitha,8000,f,12
+105,naga,6000,m,13
+101,janaki,10000,f,12
+[training@localhost ~]$ hadoop fs -mkdir joins
+[training@localhost ~]$ hadoop fs -copyFromLocal dept emp joins
+[training@localhost ~]$ hadoop fs -ls joins
+Found 2 items
+-rw-r--r--   1 training supergroup         42 2016-09-22 06:47 
+
+/user/training/joins/dept
+-rw-r--r--   1 training supergroup        123 2016-09-22 06:47 
+
+/user/training/joins/emp
+[training@localhost ~]$ 
+
+--------------
+JoinMapper.java
+------------------
+package mr.analytics;
+
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.HashMap;
+
+import org.apache.hadoop.filecache.DistributedCache;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.NullWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Mapper.Context;
+
+public class JoinMapper extends 
+
+Mapper<LongWritable,Text,Text,NullWritable>
+{
+    HashMap<Integer,String> hm = new HashMap<Integer,String>();
+    public void setup(Context con)
+     throws IOException, InterruptedException , 
+
+FileNotFoundException
+     {
+  Path[] p = DistributedCache.getLocalCacheFiles
+                         (con.getConfiguration());
+   FileInputStream fs = new FileInputStream(p[0].toString());
+   InputStreamReader isr = new InputStreamReader(fs);
+   BufferedReader br = new BufferedReader(isr);
+   String line="";
+   while((line =br.readLine())!=null)
+   {
+       // 11,mrketing,hyd
+       String[] w = line.split(",");
+       int dno = Integer.parseInt(w[0]);
+       String dinfo = w[1]+","+w[2];
+       hm.put(dno, dinfo);
+   }
+   br.close();
+  }
+ public void map(LongWritable k, Text v, Context con)
+  throws IOException, InterruptedException
+  {
+     // 101,aaa,20000,m,11
+     String line = v.toString();
+     String[] w = line.split(",");
+     int dno = Integer.parseInt(w[4]);
+     String dinfo = hm.get(dno);
+     String info = line+","+dinfo;
+     con.write(new Text(info), NullWritable.get());
+  }
+}
+
+--------------
+JoinDriver.java
+----------------
+
+package mr.analytics;
+
+import java.net.URI;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.filecache.DistributedCache;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.NullWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class JoinDriver
+{
+    public static void main(String[] args)
+     throws Exception
+     {
+         Configuration c = new Configuration();
+         Job j = new Job(c, "Merging");
+         j.setJarByClass(MergedSum.class);
+         j.setMapperClass(JoinMapper.class);
+         j.setOutputKeyClass(Text.class);
+         j.setOutputValueClass(NullWritable.class);
+        
+         Path p1 = new Path(args[0]); // emp
+         Path p2 = new Path(args[1]); // dept
+         Path p3 = new Path(args[2]); // output
+        
+FileInputFormat.addInputPath(j, p1);
+DistributedCache.addCacheFile(new URI(p2.toString()), 
+           j.getConfiguration());
+FileOutputFormat.setOutputPath(j, p3);        
+
+System.exit(j.waitForCompletion(true) ? 0:1);
+     }
+
+}
+
+-----------------------
+
+[training@localhost ~]$ hadoop jar Desktop/myapp.jar  
+
+mr.analytics.JoinDriver    joins/emp joins/dept  joins/result
+
+[training@localhost ~]$ hadoop fs -ls joins
+Found 3 items
+-rw-r--r--   1 training supergroup         42 2016-09-22 06:47 
+
+/user/training/joins/dept
+-rw-r--r--   1 training supergroup        123 2016-09-22 06:47 
+
+/user/training/joins/emp
+drwxr-xr-x   - training supergroup          0 2016-09-22 06:56 
+
+/user/training/joins/result
+[training@localhost ~]$ hadoop fs -ls joins/result
+Found 3 items
+-rw-r--r--   1 training supergroup          0 2016-09-22 06:56 
+
+/user/training/joins/result/_SUCCESS
+drwxr-xr-x   - training supergroup          0 2016-09-22 06:56 
+
+/user/training/joins/result/_logs
+-rw-r--r--   1 training supergroup        189 2016-09-22 06:56 
+
+/user/training/joins/result/part-r-00000
+[training@localhost ~]$ hadoop fs -cat joins/result/part-r-00000
+101,janaki,10000,f,12,hr,del
+101,vino,26000,m,11,marketing,hyd
+102,Sri,25000,f,11,marketing,hyd
+103,mohan,13000,m,13,finance,hyd
+104,lokitha,8000,f,12,hr,del
+105,naga,6000,m,13,finance,hyd
+[training@localhost ~]$ 
+
+-------------------------------------

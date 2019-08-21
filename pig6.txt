@@ -1,0 +1,131 @@
+Pig Lab6
+task:
+  getting top3 salaried list.
+
+ (case: a salary can be taken by multiple people).
+
+[training@localhost ~]$ cat > samps
+aaa,10000
+bbb,80000
+ccc,90000
+ddd,90000
+eeee,90000
+ffff,80000
+mmmmm,80000
+nnnnn,70000
+nnnn,70000
+nn,60000 
+m,65000 
+xx,10000
+[training@localhost ~]$ hadoop fs -copyFromLocal samps pdemo
+[training@localhost ~]$ 
+
+grunt> e = load 'pdemo/samps'     
+>>     using PigStorage(',')
+>>   as (name:chararray, sal:int);
+grunt> sals = foreach e generate sal;
+grunt> sals = distinct sals;
+grunt> sals2 = order sals by sal desc;
+grunt> top3 = limit sals2 3;
+grunt> dump top3
+
+grunt> describe top3
+top3: {sal: int}
+grunt> describe e
+e: {name: chararray,sal: int}
+grunt> res = join e by sal , top3 by sal;
+grunt> describe res;
+res: {e::name: chararray,e::sal: int,top3::sal: int}
+grunt> res = foreach res generate e::name as name,
+>>         e::sal as sal;
+grunt> dump res
+(nnnnn,70000)
+(nnnn,70000)
+(bbb,80000)
+(ffff,80000)
+(mmmmm,80000)
+(ccc,90000)
+(ddd,90000)
+(eeee,90000)
+_____________________________________
+Cross:
+ gives cartisian product.
+
+used for non-equi functionalities of joins.
+
+[training@localhost ~]$ cat > matrimony
+Ravi,25,m
+Rani,24,f
+Ilean,23,f
+trisha,27,f
+Kiran,29,m
+madhu,22,m
+avi,26,m
+srithi,21,f
+[training@localhost ~]$ hadoop fs -copyFromLocal matrimony pdemo
+[training@localhost ~]$ 
+grunt> matri = load 'pdemo/matrimony' 
+>>    using PigStorage(',')
+>>   as (name:chararray, age:int, sex:chararray);
+grunt> males = filter matri by (sex=='m');
+grunt> fems = filter matri by (sex=='f');
+grunt> cr = cross males, fems;
+grunt> describe cr
+cr: {males::name: chararray,males::age: int,males::sex: chararray,fems::name: chararray,fems::age: int,fems::sex: chararray}
+grunt> mf = foreach cr generate males::name as mname, fems::name as fname , males::age as mage,
+>>  fems::age as fage;
+grunt> 
+grunt> describe mf
+mf: {mname: chararray,fname: chararray,mage: int,fage: int}
+grunt> mlist = filter mf by                
+>>   (mage>fage  and (mage-fage)<4);
+
+grunt> dump mlist;
+(madhu,srithi,22,21)
+(avi,Rani,26,24)
+(avi,Ilean,26,23)
+(Kiran,trisha,29,27)
+(Ravi,Rani,25,24)
+(Ravi,Ilean,25,23)
+_________________________________
+
+to submit scripts
+
+3 commands:
+ i) Pig
+ ii) exec
+ iii) run 
+
+ pig to submit from command prompt.
+  aliases will not be available in grunt.
+
+ exec- to submit script from grunt shell. aliases will not be available.
+
+ run- to submit script from grunt,
+ aliases will be available.
+ so that we reuse them.
+
+[training@localhost ~]$ cat script1.pig
+emp = load 'pdemo/emp' using PigStorage(',')
+    as (id:int, name:chararray, sal:int, sex:chararray, dno:int);
+e = foreach emp generate sex, sal;
+bySex = group e by sex;
+res = foreach bySex generate group as sex, SUM(e.sal) as tot;
+dump res
+
+$ pig script1.pig
+
+grunt> exec script1.pig
+
+grunt> run script1.pig
+
+______________________________
+
+register, define.
+
+
+
+
+
+
+_____________________

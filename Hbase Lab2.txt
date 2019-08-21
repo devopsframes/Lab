@@ -1,0 +1,223 @@
+HBase Lab2 : Importing data from RDBMS to Hbase
+sqoop and hbase
+__________________
+
+Importing data from Rdbms to Hbase table.
+
+mysql> create database  sqdb;
+Query OK, 1 row affected (0.00 sec)
+
+mysql> use sqdb;
+Database changed
+
+mysql> 
+
+
+mysql> insert into emp values(101,'aaa',10000,'m',11);
+Query OK, 1 row affected (0.00 sec)
+
+mysql> insert into emp values(102,'baaa',20000,'m',12);
+Query OK, 1 row affected (0.00 sec)
+
+mysql> insert into emp values(103,'baaav',30000,'f',12);
+Query OK, 1 row affected (0.00 sec)
+
+mysql> insert into emp values(104,'xaaav',50000,'f',11);
+Query OK, 1 row affected (0.00 sec)
+
+mysql> 
+
+mysql> select * from emp;
++-----+-------+-------+------+------+
+| id  | name  | sal   | sex  | dno  |
++-----+-------+-------+------+------+
+| 101 | aaa   | 10000 | m    |   11 | 
+| 102 | baaa  | 20000 | m    |   12 | 
+| 103 | baaav | 30000 | f    |   12 | 
+| 104 | xaaav | 50000 | f    |   11 | 
++-----+-------+-------+------+------+
+4 rows in set (0.00 sec)
+
+mysql> 
+
+hbase(main):047:0> create 'heroes1','e'
+0 row(s) in 1.1840 seconds
+
+hbase(main):048:0> 
+
+[training@localhost ~]$ sqoop import \
+>  --connect jdbc:mysql://localhost/sqdb \
+>  --username root \
+>  --table emp  \
+>  --hbase-table heroes1 \
+>  --column-family e
+
+hbase(main):048:0> scan 'heroes1'
+ROW           COLUMN+CELL                         
+ 101          column=e:dno, timestamp=146716789297
+              1, value=11                         
+ 101          column=e:name, timestamp=14671678929
+              71, value=aaa                       
+ 101          column=e:sal, timestamp=146716789297
+              1, value=10000                      
+ 101          column=e:sex, timestamp=146716789297
+              1, value=m                          
+ 102          column=e:dno, timestamp=146716789311
+              0, value=12                         
+ 102          column=e:name, timestamp=14671678931
+              10, value=baaa                      
+ 102          column=e:sal, timestamp=146716789311
+              0, value=20000                      
+ 102          column=e:sex, timestamp=146716789311
+              0, value=m                          
+ 103          column=e:dno, timestamp=146716789419
+              1, value=12                         
+ 103          column=e:name, timestamp=14671678941
+              91, value=baaav                     
+ 103          column=e:sal, timestamp=146716789419
+              1, value=30000                      
+ 103          column=e:sex, timestamp=146716789419
+              1, value=f                          
+ 104          column=e:dno, timestamp=146716789419
+              1, value=11                         
+ 104          column=e:name, timestamp=14671678941
+              91, value=xaaav                     
+ 104          column=e:sal, timestamp=146716789419
+              1, value=50000                      
+ 104          column=e:sex, timestamp=146716789419
+              1, value=f                          
+4 row(s) in 0.0360 seconds
+
+hbase(main):049:0> 
+-----
+
+if target table (hbase) not existed.
+
+[training@localhost ~]$ sqoop import  --connect jdbc:mysql://localhost/sqdb  --username root  --table emp   --hbase-table heroes2  --column-family e   --hbase-create-table
+
+----------------------------
+
+if table does not have primary key.
+
+
+
+mysql> create table emp2(id int, name char(10),
+    ->   sal int, sex char(1), dno int);
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> insert into emp2 select * from emp;
+Query OK, 4 rows affected (0.00 sec)
+Records: 4  Duplicates: 0  Warnings: 0
+
+mysql> select * from emp2;
++------+-------+-------+------+------+
+| id   | name  | sal   | sex  | dno  |
++------+-------+-------+------+------+
+|  101 | aaa   | 10000 | m    |   11 | 
+|  102 | baaa  | 20000 | m    |   12 | 
+|  103 | baaav | 30000 | f    |   12 | 
+|  104 | xaaav | 50000 | f    |   11 | 
++------+-------+-------+------+------+
+4 rows in set (0.00 sec)
+
+mysql> insert into emp2 values(101,'xxxx',100000,'m',13);
+Query OK, 1 row affected (0.00 sec)
+
+mysql> select * from emp2;
++------+-------+--------+------+------+
+| id   | name  | sal    | sex  | dno  |
++------+-------+--------+------+------+
+|  101 | aaa   |  10000 | m    |   11 | 
+|  102 | baaa  |  20000 | m    |   12 | 
+|  103 | baaav |  30000 | f    |   12 | 
+|  104 | xaaav |  50000 | f    |   11 | 
+|  101 | xxxx  | 100000 | m    |   13 | 
++------+-------+--------+------+------+
+5 rows in set (0.00 sec)
+
+mysql> 
+
+[training@localhost ~]$ sqoop import  --connect jdbc:mysql://localhost/sqdb  --username root  --table emp2 -m 1  --hbase-table heroines --hbase-row-key id   --column-family e   --hbase-create-table
+
+_____________________________
+
+mysql> select * from emp;
++-----+-------+-------+------+------+
+| id  | name  | sal   | sex  | dno  |
++-----+-------+-------+------+------+
+| 101 | aaa   | 10000 | m    |   11 | 
+| 102 | baaa  | 20000 | m    |   12 | 
+| 103 | baaav | 30000 | f    |   12 | 
+| 104 | xaaav | 50000 | f    |   11 | 
++-----+-------+-------+------+------+
+4 rows in set (0.00 sec)
+
+mysql> create table dept(dno int, name char(10),
+    ->   loc char(10));
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> insert into dept values(11,'mrkt','hyd')
+    -> ;
+Query OK, 1 row affected (0.00 sec)
+
+mysql> insert into dept values(12,'hr','del')
+    -> ;
+Query OK, 1 row affected (0.00 sec)
+
+mysql> select * from dept;
++------+------+------+
+| dno  | name | loc  |
++------+------+------+
+|   11 | mrkt | hyd  | 
+|   12 | hr   | del  | 
++------+------+------+
+2 rows in set (0.00 sec)
+
+mysql> create table ed(id int primary key, 
+    ->   name char(10),
+    ->  sal int,
+    ->   sex char(1),
+    ->   dname char(10),
+    ->  loc char(10));
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> 
+
+mysql> insert into ed 
+    ->  select id, l.name, sal, sex, r.name,loc    ->   from emp l join dept r
+    ->  where (l.dno=r.dno);
+Query OK, 4 rows affected (0.00 sec)
+Records: 4  Duplicates: 0  Warnings: 0
+
+mysql> select * from ed;
++-----+-------+-------+------+-------+------+
+| id  | name  | sal   | sex  | dname | loc  |
++-----+-------+-------+------+-------+------+
+| 101 | aaa   | 10000 | m    | mrkt  | hyd  | 
+| 102 | baaa  | 20000 | m    | hr    | del  | 
+| 103 | baaav | 30000 | f    | hr    | del  | 
+| 104 | xaaav | 50000 | f    | mrkt  | hyd  | 
++-----+-------+-------+------+-------+------+
+4 rows in set (0.00 sec)
+
+mysql> 
+
+
+mysql> select * from ed;
++-----+-------+-------+------+-------+------+
+| id  | name  | sal   | sex  | dname | loc  |
++-----+-------+-------+------+-------+------+
+| 101 | aaa   | 10000 | m    | mrkt  | hyd  | 
+| 102 | baaa  | 20000 | m    | hr    | del  | 
+| 103 | baaav | 30000 | f    | hr    | del  | 
+| 104 | xaaav | 50000 | f    | mrkt  | hyd  | 
++-----+-------+-------+------+-------+------+
+4 rows in set (0.00 sec)
+
+mysql> 
+
+[training@localhost ~]$ sqoop import  --connect jdbc:mysql://localhost/sqdb  --username root  --table ed  --columns name,sal,sex,id --hbase-table heroines2   --column-family e   --hbase-create-table
+
+
+
+[training@localhost ~]$ sqoop import  --connect jdbc:mysql://localhost/sqdb  --username root  --table ed  --columns dname,loc,id  --hbase-table heroines2   --column-family d  --hbase-create-table

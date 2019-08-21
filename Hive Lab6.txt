@@ -1,0 +1,189 @@
+Hive Lab6 : xml data processing 2
+Hive xml2
+______________________
+
+hive> create database xxmls;
+OK
+Time taken: 0.182 seconds
+hive> use xxmls;
+OK
+Time taken: 0.017 seconds
+
+[training@localhost ~]$ cat xml5
+<tr><cid>101</cid><pr>3000</pr><qnt>3</qnt><pr>5000</pr><qnt>2</qnt><pr>1000</pr><qnt>5</qnt></tr>
+<tr><cid>102</cid><pr>2000</pr><qnt>5</qnt><pr>5000</pr><qnt>2</qnt></tr>
+<tr><cid>101</cid><pr>6000</pr><qnt>5</qnt></tr>
+[training@localhost ~]$ 
+
+
+hive> create table raw(line string);
+OK
+Time taken: 0.252 seconds
+hive> load data local inpath 'xml5' 
+    >  into table raw;
+Copying data from file:/home/training/xml5
+Copying file: file:/home/training/xml5
+Loading data to table xxmls.raw
+OK
+Time taken: 0.178 seconds
+hive> select * from raw;
+OK
+<tr><cid>101</cid><pr>3000</pr><qnt>3</qnt><pr>5000</pr><qnt>2</qnt><pr>1000</pr><qnt>5</qnt></tr>
+<tr><cid>102</cid><pr>2000</pr><qnt>5</qnt><pr>5000</pr><qnt>2</qnt></tr>
+<tr><cid>101</cid><pr>6000</pr><qnt>5</qnt></tr>
+Time taken: 0.155 seconds
+hive> 
+
+
+hive> create table raw2(cid int, 
+    > pr array<string>, qnt array<string>);
+OK
+Time taken: 0.069 seconds
+hive> insert overwrite table raw2
+    >   select xpath_int(line,'tr/cid'),
+    >     xpath(line,'tr/pr/text()'),
+    >     xpath(line,'tr/qnt/text()') 
+    > from raw;
+
+hive> create table cidpr(cid int , pr int);
+hive> insert overwrite table cidpr
+    >   select cid, mypr from raw2
+    >    lateral view explode(pr) p as mypr;
+
+hive> create table cidqnt(cid int, qnt int);
+
+hive> insert overwrite table cidqnt
+    >    select cid, myqnt from raw2
+    >   lateral view explode(qnt) q as myqnt;
+
+
+hive> select * from cidpr;
+OK
+101     3000
+101     5000
+101     1000
+102     2000
+102     5000
+101     6000
+Time taken: 0.06 seconds
+hive> select * from cidqnt;
+OK
+101     3
+101     2
+101     5
+102     5
+102     2
+101     5
+Time taken: 0.046 seconds
+hive> 
+
+
+hive> add jar Desktop/hivejars.jar;  
+hive> create temporary function auto 
+    >  as 'hive.analytics.SeqNumber';
+
+
+ hive> alter table cidpr add columns(n int);
+ hive> insert overwrite table cidpr
+    select cid, pr, auto() from cidpr;
+
+ hive> alter table cidqnt add columns(n int);
+ hive> insert overwrite table cidqnt
+    select cid, qnt, auto() from cidqnt;
+
+ hive> create table trans(cid int, pr int, 
+             qnt int, bill int);
+ hive> insert overwrite table trans
+       select l.cid, pr, qnt, pr*qnt
+    from cidpr l join cidqnt r
+           on (l.n=r.n);
+
+ hive> create table report(cid int, totbill int);
+ hive> insert overwrite table report
+    select cid, sum(bill) from trans
+        group by cid;
+ hive> select * from report;
+________________________
+
+hive.analytics.SeqNumber.java
+______________________
+package hive.analytics;
+
+import java.io.IOException;
+
+import org.apache.hadoop.hive.ql.exec.UDF;
+import org.apache.hadoop.io.IntWritable;
+
+public class SeqNumber extends UDF
+{
+  int cnt = 0;
+ public IntWritable  evaluate()
+ throws IOException
+ {
+  cnt++;
+  return  new IntWritable(cnt);
+ }
+ 
+
+}
+
+______________________________
+
+keep all above statements into a script file.
+   
+   hscript1.hql
+ ________________
+
+ create database urheroes;
+ use urheroes;
+ create table raw(line string);
+ load data local inpath 'xml5' into table raw;
+ create table raw2(cid int, pr array<string>, qnt array<string>);
+ insert overwrite table raw2
+  select xpath_int(line,'tr/cid'),
+    xpath(line,'tr/pr/text()'),
+    xpath(line,'tr/qnt/text()') from raw;
+ create table cidpr(cid int, pr int);
+ insert overwrite table cidpr
+   select cid, mypr from raw2
+    lateral view explode(pr) p as mypr;
+ create table cidqnt(cid int, qnt int);
+ insert overwrite table cidqnt
+   select cid, myq from raw2
+    lateral view explode(qnt) q as myq;
+ alter table cidpr add columns(n int);
+ alter table cidqnt add columns(n int);
+ add jar Desktop/hivejars.jar;
+ create temporary function auto 
+   as 'hive.analytics.SeqNumber';
+ insert overwrite table cidpr
+   select cid, pr, auto() from cidpr;
+ insert overwrite table cidqnt
+   select cid, qnt, auto() from cidqnt;
+ create table trans(cid int, pr int, qnt int, 
+   bill int);
+ insert overwrite table trans
+   select l.cid, pr, qnt, pr*qnt
+   from cidpr l join cidqnt r
+   on (l.n=r.n);
+ create table report(cid int, totbill int);
+ insert overwrite table report
+   select cid, sum(bill) from trans
+    group by cid;
+ select * from trans;
+ select * from report;
+ drop table raw;
+ drop table raw2;
+ drop table cidpr;
+ drop table cidqnt;
+________________________
+
+ how to submit script:
+
+ $ hive -f hscript1.hql
+_______________________________________
+
+
+
+
+

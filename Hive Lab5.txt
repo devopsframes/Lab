@@ -1,0 +1,323 @@
+Hive Lab5 : xml data processing
+[training@localhost ~]$ cat sampxml1
+<rec>
+  <name>Ravi</name>
+  <age>25</age>
+  <sex>m</sex>
+</rec>
+<rec>
+  <name>Rani</name>
+  <sex>f</sex>
+  <city>Hyd</city>
+</rec>
+[training@localhost ~]$ 
+
+hive> create table samp(line string);
+OK
+Time taken: 0.309 seconds
+hive> load data local inpath 'sampxml1'
+    >  into table samp;
+Copying data from file:/home/training/sampxml1
+Copying file: file:/home/training/sampxml1
+Loading data to table ourxml.samp
+OK
+Time taken: 0.202 seconds
+hive> 
+
+hive> select * from samp;
+OK
+<rec>
+  <name>Ravi</name>
+  <age>25</age>
+  <sex>m</sex>
+</rec>
+<rec>
+  <name>Rani</name>
+  <sex>f</sex>
+  <city>Hyd</city>
+</rec>
+Time taken: 0.184 seconds
+hive> 
+
+ above xml file has 2 records,
+ when this file is loaded into hive table, hive treats, each line as a record,
+  as per xml == two records.
+  as per hive --> 10 records(rows.).
+
+this data is not ready for hive,
+hive expects total xml record in a single line.
+so data preperation step is required.
+
+Prepare a mapreduce Job , which can convert xml record into single row.
+
+  (Later we see in Mapreduce session).,
+
+[training@localhost ~]$ cat xml1
+<rec><name>Ravi</name><age>25</age><city>hyd</city></rec>
+<rec><name>Rani</name><age>24</age><sex>f</sex></rec>
+<rec><name>Sampath</name><sex>m</sex><city>Del</city></rec>
+[training@localhost ~]$ 
+
+
+hive> create table raw(line string);
+OK
+Time taken: 0.05 seconds
+hive> load data local inpath 'xml1'
+    >  into table raw;
+Copying data from file:/home/training/xml1
+Copying file: file:/home/training/xml1
+Loading data to table ourxml.raw
+OK
+Time taken: 0.123 seconds
+hive> 
+
+
+hive> select * from raw;
+OK
+<rec><name>Ravi</name><age>25</age><city>hyd</city></rec>
+<rec><name>Rani</name><age>24</age><sex>f</sex></rec>
+<rec><name>Sampath</name><sex>m</sex><city>Del</city></rec>
+Time taken: 0.066 seconds
+hive> select count(*) from raw;
+3
+-- 3 rows.
+
+hive> select xpath_string(line,'rec/name') from raw;
+Ravi
+Rani
+Sampath
+
+hive> select 
+    >  xpath_string(line,'rec/name'),
+    >  xpath_int(line,'rec/age'),
+    >  xpath_string(line,'rec/sex'),
+    >  xpath_string(line,'rec/city')
+    > from raw;
+
+Ravi    25              hyd
+Rani    24      f
+Sampath 0       m       Del
+
+if string fields is missed, it returns blank string, if numeric field is missed it returns 0.
+
+
+_________________
+
+xml with nested tags.
+
+[training@localhost ~]$ cat xml2
+<rec><name><fname>Ravi</fname><lname>kumar</lname></name><age>25</age><contact><email><personal>ravi@gmail.com</personal><official>ravi@infy.com</official></email><phone><mobile>12345</mobile><office>12346</office><residence>12347</residence></phone></contact></rec>
+[training@localhost ~]$ 
+
+hive> create table xraw(line string);
+OK
+Time taken: 0.075 seconds
+hive> load data local inpath 'xml2'
+    >  into table xraw;
+
+hive> select * from xraw;
+OK
+<rec><name><fname>Ravi</fname><lname>kumar</lname></name><age>25</age><contact><email><personal>ravi@gmail.com</personal><official>ravi@infy.com</official></email><phone><mobile>12345</mobile><office>12346</office><residence>12347</residence></phone></contact></rec>
+Time taken: 0.064 seconds
+hive> 
+
+hive> create table info(fname string, 
+    >   lname string, 
+    > age int, personal_email string,
+    >  official_email string,
+    >  mobile string, office string, 
+    >  residence string);
+OK
+Time taken: 0.042 seconds
+hive> 
+
+hive> insert overwrite table info
+    >   select 
+    > xpath_string(line,'rec/name/fname'),
+    > xpath_string(line,'rec/name/lname'),
+    > xpath_int(line,'rec/age'),          
+    > xpath_string(line,'rec/contact/email/personal'),
+    > xpath_string(line,'rec/contact/email/official'),
+    > xpath_string(line,'rec/contact/phone/mobile'),
+    > xpath_string(line,'rec/contact/phone/office'),
+    > xpath_string(line,'rec/contact/phone/residence') 
+    >  from xraw;
+
+hive> select * from info;
+OK
+Ravi    kumar   25      ravi@gmail.com  ravi@infy.com     12345   12346   12347
+Time taken: 0.064 seconds
+hive> 
+_____________
+
+xml with collections.
+
+
+
+[training@localhost ~]$ cat xml3
+<rec><name>Amar</name><qual>Btech</qual><qual>Mtech</qual></rec>
+<rec><name>Amala</name><qual>Bsc</qual><qual>Msc</qual><qual>Mtech</qual></rec>
+<rec><name>Akash</name><qual>Btech</qual><qual>Mba</qual></rec>
+[training@localhost ~]$ 
+
+hive> create table yraw(line string);
+OK
+Time taken: 0.043 seconds
+hive> load data local inpath 'xml3'
+    >  into table yraw;
+
+hive> select * from yraw;
+<rec><name>Amar</name><qual>Btech</qual><qual>Mtech</qual></rec>
+<rec><name>Amala</name><qual>Bsc</qual><qual>Msc</qual><qual>Mtech</qual></rec>
+<rec><name>Akash</name><qual>Btech</qual><qual>Mba</qual></rec>
+
+hive> 
+hive> create table raw2(name string, 
+    >    qual  array<string>);
+OK
+Time taken: 0.039 seconds
+hive> insert overwrite table raw2
+    >   select xpath_string(line,'rec/name'),
+    >  xpath(line,'rec/qual/text()')
+    >   from yraw;
+
+hive> select * from raw2;
+OK
+Amar    ["Btech","Mtech"]
+Amala   ["Bsc","Msc","Mtech"]
+Akash   ["Btech","Mba"]
+Time taken: 0.061 seconds
+hive> 
+
+hive> select name, size(qual) from raw2;
+
+Amar    2
+Amala   3
+Akash   2
+
+how to access array elements,
+
+ by using index numbers
+
+ indexing starts from 0.
+
+hive> select qual[0], qual[1],
+          qual[2] from raw2;
+Btech   Mtech   NULL
+Bsc     Msc     Mtech
+Btech   Mba     NULL
+
+search for elements with in array.
+
+hive> select * from raw2 
+    >  where array_contains(qual,'Mtech');
+
+
+Amar    ["Btech","Mtech"]
+Amala   ["Bsc","Msc","Mtech"]
+
+_______________
+Flattening Array elements:
+
+hive> select explode(qual) as q 
+   from raw2;
+
+Btech
+Mtech
+Bsc
+Msc
+Mtech
+Btech
+Mba
+
+
+hive> select name, explode(qual) as q from raw2;
+FAILED: Error in semantic analysis: UDTF's are not supported outside the SELECT clause, nor nested in expressions
+hive> 
+
+-- above statement is invalid,
+   bcoz, udtf s can not be applied with other column expressions.
+
+hive> create table  yinfo(name string, 
+    >      qual string);
+OK
+Time taken: 0.035 seconds
+hive> insert overwrite table yinfo 
+    >   select name, myq from raw2
+    >    lateral view explode(qual) q as myq;
+
+hive> select * from yinfo;
+OK
+Amar    Btech
+Amar    Mtech
+Amala   Bsc
+Amala   Msc
+Amala   Mtech
+Akash   Btech
+Akash   Mba
+Time taken: 0.055 seconds
+
+hive> select * from yinfo   
+    >   where qual in ('Msc','Mtech');
+
+
+Amar    Mtech
+Amala   Msc
+Amala   Mtech
+
+hive> create table yres(qual string, cnt int);
+OK
+Time taken: 0.036 seconds
+hive> insert overwrite table yres
+    >   select qual, count(*) from yinfo
+    >    group by qual;
+
+hive> select * from yres;
+OK
+Bsc     1
+Btech   2
+Mba     1
+Msc     1
+Mtech   2
+Time taken: 0.051 seconds
+hive> 
+
+____________________
+
+Assignment:
+
+[training@localhost ~]$ cat xml4
+<tr><cid>101</cid><pr>1000</pr><pr>3000</pr></tr>
+<tr><cid>102</cid><pr>1200</pr><pr>2000</pr><pr>5000</pr></tr>
+<tr><cid>101</cid><pr>4000</pr></tr>
+[training@localhost ~]$ 
+
+hive> create database sales;
+hive> use sales;
+hive> create table raw(line string);
+hive> load data local inpath 'xml4'
+   into table raw;
+hive> create table raw2(cid string, 
+    pr array<string>);
+
+hive> insert overwrite table raw2
+   select xpath_string(line,'tr/cid'),
+   xpath(line,'tr/pr/text()')
+    from raw;
+hive> create table raw3(cid string, 
+   pr int);
+hive> insert overwrite table raw3
+    select cid, mypr from  raw2
+   lateral view explode(pr) p as mypr;
+
+hive> create table results(cid string, 
+   totbill int);
+hive> insert overwrite table results
+   select cid, sum(pr)
+   from raw3
+   group by cid;
+
+hive> select * from results;
+
+--- my students are really super and energitic -- 
+_______________  __________

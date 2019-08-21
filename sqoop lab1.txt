@@ -1,0 +1,326 @@
+$ mysql -u root
+
+mysql>
+
+mysql> show databases;
++--------------------+
+| Database           |
++--------------------+
+| information_schema | 
+| datahub            | 
+| datamart           | 
+| halitics           | 
+| hivemetastore      | 
+| movielens          | 
+| mysql              | 
+| product            | 
+| siri               | 
+| training           | 
++--------------------+
+10 rows in set (0.11 sec)
+
+mysql> 
+
+mysql> create database practice;
+Query OK, 1 row affected (0.02 sec)
+
+mysql> use practice;
+Database changed
+
+
+mysql> show tables;
+Empty set (0.00 sec)
+
+mysql> create table samp(id int primary key,
+    ->     name char(10), sal int, 
+    ->   sex char(1), dno int);
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> describe samp;
++-------+----------+------+-----+---------+-------+
+| Field | Type     | Null | Key | Default | Extra |
++-------+----------+------+-----+---------+-------+
+| id    | int(11)  | NO   | PRI | NULL    |       | 
+| name  | char(10) | YES  |     | NULL    |       | 
+| sal   | int(11)  | YES  |     | NULL    |       | 
+| sex   | char(1)  | YES  |     | NULL    |       | 
+| dno   | int(11)  | YES  |     | NULL    |       | 
++-------+----------+------+-----+---------+-------+
+5 rows in set (0.00 sec)
+
+mysql> 
+
+mysql> 
+mysql> insert into samp values(101,'aaaa',10000,'m',12)
+    -> ;
+Query OK, 1 row affected (0.01 sec)
+
+mysql> insert into samp values(102,'addaaa',20000,'f',12);
+Query OK, 1 row affected (0.00 sec)
+
+mysql> insert into samp values(103,'ada',20000,'f',13);
+Query OK, 1 row affected (0.00 sec)
+
+mysql> insert into samp values(104,'ada',50000,'f',11);
+Query OK, 1 row affected (0.00 sec)
+
+mysql> insert into samp values(105,'addda',70000,'m',12);
+Query OK, 1 row affected (0.00 sec)
+
+mysql> insert into samp values(106,'adddda',80000,'m',11);
+Query OK, 1 row affected (0.00 sec)
+
+mysql> insert into samp values(107,'xadddda',70000,'f',12);
+Query OK, 1 row affected (0.00 sec)
+
+mysql> 
+
+mysql> select * from samp;
++-----+---------+-------+------+------+
+| id  | name    | sal   | sex  | dno  |
++-----+---------+-------+------+------+
+| 101 | aaaa    | 10000 | m    |   12 | 
+| 102 | addaaa  | 20000 | f    |   12 | 
+| 103 | ada     | 20000 | f    |   13 | 
+| 104 | ada     | 50000 | f    |   11 | 
+| 105 | addda   | 70000 | m    |   12 | 
+| 106 | adddda  | 80000 | m    |   11 | 
+| 107 | xadddda | 70000 | f    |   12 | 
++-----+---------+-------+------+------+
+7 rows in set (0.00 sec)
+
+______________________
+
+[training@localhost ~]$ sqoop import    --connect  jdbc:mysql://localhost/practice   --username root   --table  samp   --target-dir   sqimp1
+
+[training@localhost ~]$ hadoop fs -ls sqimp1
+Found 6 items
+-rw-r--r--   1 training supergroup          0 2016-06-01 19:36 /user/training/sqimp1/_SUCCESS
+drwxr-xr-x   - training supergroup          0 2016-06-01 19:36 /user/training/sqimp1/_logs
+-rw-r--r--   1 training supergroup         42 2016-06-01 19:36 /user/training/sqimp1/part-m-00000
+-rw-r--r--   1 training supergroup         38 2016-06-01 19:36 /user/training/sqimp1/part-m-00001
+-rw-r--r--   1 training supergroup         21 2016-06-01 19:36 /user/training/sqimp1/part-m-00002
+-rw-r--r--   1 training supergroup         45 2016-06-01 19:36 /user/training/sqimp1/part-m-00003
+[training@localhost ~]$ 
+
+[training@localhost ~]$ hadoop fs -cat sqimp1/part-m-00000
+101,aaaa,10000,m,12
+102,addaaa,20000,f,12
+[training@localhost ~]$ hadoop fs -cat sqimp1/part-m-00001
+103,ada,20000,f,13
+104,ada,50000,f,11
+[training@localhost ~]$ hadoop fs -cat sqimp1/part-m-00002
+105,addda,70000,m,12
+[training@localhost ~]$ hadoop fs -cat sqimp1/part-m-00003
+106,adddda,80000,m,11
+107,xadddda,70000,f,12
+[training@localhost ~]$ 
+
+by default sqoop initiates 4 mappers.
+
+ these mappers will parallely importing data .
+
+that means, table is splitted into 4 parts,
+ each part is taken by seperate mapper.
+
+how to controll number of mappers.
+
+ use the option -m <number>
+
+  ex:   -m 2
+
+[training@localhost ~]$ sqoop import \
+>  --connect  jdbc:mysql://localhost/practice \
+>  --username root  \
+>  --table samp -m 2 --target-dir sqimp2
+
+[training@localhost ~]$ hadoop fs -ls sqimp2
+Found 4 items
+-rw-r--r--   1 training supergroup          0 2016-06-01 19:48 /user/training/sqimp2/_SUCCESS
+drwxr-xr-x   - training supergroup          0 2016-06-01 19:48 /user/training/sqimp2/_logs
+-rw-r--r--   1 training supergroup         61 2016-06-01 19:48 /user/training/sqimp2/part-m-00000
+-rw-r--r--   1 training supergroup         85 2016-06-01 19:48 /user/training/sqimp2/part-m-00001
+[training@localhost ~]$ hadoop fs -cat sqimp2/part-m-00000
+101,aaaa,10000,m,12
+102,addaaa,20000,f,12
+103,ada,20000,f,13
+[training@localhost ~]$ 
+
+____________________
+
+mysql> create table damp(id int, 
+    ->   name char(10), sal int, sex char(1),
+    ->   dno int);
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> insert into damp select * from samp;
+Query OK, 7 rows affected (0.01 sec)
+Records: 7  Duplicates: 0  Warnings: 0
+
+mysql> select * from damp;
++------+---------+-------+------+------+
+| id   | name    | sal   | sex  | dno  |
++------+---------+-------+------+------+
+|  101 | aaaa    | 10000 | m    |   12 | 
+|  102 | addaaa  | 20000 | f    |   12 | 
+|  103 | ada     | 20000 | f    |   13 | 
+|  104 | ada     | 50000 | f    |   11 | 
+|  105 | addda   | 70000 | m    |   12 | 
+|  106 | adddda  | 80000 | m    |   11 | 
+|  107 | xadddda | 70000 | f    |   12 | 
++------+---------+-------+------+------+
+7 rows in set (0.00 sec)
+
+mysql> 
+
+
+if table is not having primary key,
+
+ number of mappers should be 1.
+
+
+why?
+
+ when  multiple mappers mappers initiated, 
+  first mapper automatically points to begining  record of the first split. remaining mappers can not point to begining of their splits randomly. bcoz there is no primary key.
+
+  so only sequential reading is allowed from beginning of table to end of the table.
+
+   to make begining to ending as one split,
+ only one mapper should be intiated.
+
+    -m 1.
+
+______________________
+
+[training@localhost ~]$ sqoop import  --connect  jdbc:mysql://localhost/practice  --username root   --table damp -m 1  --target-dir sqimp4
+
+
+[training@localhost ~]$ hadoop fs -ls sqimp4
+Found 3 items
+-rw-r--r--   1 training supergroup          0 2016-06-01 19:58 /user/training/sqimp4/_SUCCESS
+drwxr-xr-x   - training supergroup          0 2016-06-01 19:58 /user/training/sqimp4/_logs
+-rw-r--r--   1 training supergroup        146 2016-06-01 19:58 /user/training/sqimp4/part-m-00000
+[training@localhost ~]$ hadoop fs -cat sqimp4/part-m-00000
+101,aaaa,10000,m,12
+102,addaaa,20000,f,12
+103,ada,20000,f,13
+104,ada,50000,f,11
+105,addda,70000,m,12
+106,adddda,80000,m,11
+107,xadddda,70000,f,12
+[training@localhost ~]$ 
+
+_______________________________
+
+to filter rows at the time importing..
+
+[training@localhost ~]$ sqoop import  --connect  jdbc:mysql://localhost/practice  --username root   --table damp -m 1 --where 'sal<50000' --target-dir sqimp5
+
+
+
+[training@localhost ~]$ hadoop fs -cat sqimp5/part-m-00000
+101,aaaa,10000,m,12
+102,addaaa,20000,f,12
+103,ada,20000,f,13
+[training@localhost ~]$ 
+
+______________________
+
+[training@localhost ~]$ sqoop import  --connect  jdbc:mysql://localhost/practice  --username root   --table damp -m 1 --where 'sex="m"' --target-dir sqimp6
+
+
+[training@localhost ~]$ hadoop fs -cat sqimp6/part-m-00000
+101,aaaa,10000,m,12
+105,addda,70000,m,12
+106,adddda,80000,m,11
+[training@localhost ~]$ 
+
+_______________________
+
+importing selective columns....
+
+[training@localhost ~]$ sqoop import  --connect  jdbc:mysql://localhost/practice  --username root   --table damp -m 1 --columns name,sal,dno --target-dir sqimp7
+
+[training@localhost ~]$ hadoop fs -cat sqimp7/part-m-00000
+aaaa,10000,12
+addaaa,20000,12
+ada,20000,13
+ada,50000,11
+addda,70000,12
+adddda,80000,11
+xadddda,70000,12
+[training@localhost ~]$ 
+
+____________________________________
+
+      sankara.deva2016@gmail.com
+ 
+
+
+   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

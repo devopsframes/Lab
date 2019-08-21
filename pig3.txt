@@ -1,0 +1,234 @@
+Pig Lab3
+load, foreach , 
+
+3) dump :-
+    
+    to execute data flow.
+   writes output into console.
+
+    entire dataflow will be converted as single map reduce job.
+
+   ex:
+
+  grunt> dump res;
+
+______________________________________________
+
+4) store:-
+
+    to execute data flow.
+   writes output into disk (local/hdfs)
+
+   grunt> store res into 'results1';
+    -- tab is delimiter.
+         
+   grunt> store res into 'results2' 
+          using PigStorage(',');
+
+   load and store operators use Storage Methods.
+_______________________________________
+     
+5) filter :-
+
+      to create subsets , based on given criteria.
+
+     (row filter, equivalant to 'where' clause of sql  select statement )
+
+ grunt> e1 = filter emp by (sex=='m');
+grunt> dump e1
+
+grunt> e1 = filter emp by (sex=='m' and dno==12)
+>> ;
+grunt> dump e1
+   
+___________________________________________
+
+6) Limit :-
+
+    to fetch top n number of tuples.
+
+ grunt> top3 = limit emp 3;
+grunt> dump top3
+
+(101,vino,26000,m,11)
+(102,Sri,25000,f,11)
+(103,mohan,13000,m,13)
+
+7) sample:-
+
+     to create subsets, in random sample style.
+
+(102,Sri,25000,f,11)
+(104,lokitha,8000,f,12)
+(203,ccc,10000,f,13)
+
+grunt> rs = sample emp 0.5;
+grunt> dump rs      
+
+_________________________________________________
+
+8) Aggregated functions in PigLatin.
+
+   SUM(), AVG(), MAX(), MIN(), COUNT()
+
+   
+grunt> r = foreach emp generate SUM(sal) as tot;
+grunt> dump r
+
+   ABOVE statement will be failed during execution,.
+
+    bcoz, AGGREGATED functions are applied only on inner bags.
+   when you group data , inner bags will be produced.
+
+_________________________________________
+
+9) group: -
+      to get inner bags foreach data group.
+   based on grouping field.
+
+grunt> describe emp;
+emp: {id: int,name: chararray,sal: int,sex: chararray,dno: int}
+grunt> -- select sex, sum(sal) from emp group by sex
+grunt> e = foreach emp generate sex, sal;
+grunt> bySex = group e by sex;
+grunt> describe bySex
+bySex: {group: chararray,e: {sex: chararray,sal: int}}
+grunt> dump bySex
+
+grunt> res = foreach bySex generate
+>>         group as sex, SUM(e.sal) as tot;
+grunt> describe res
+res: {sex: chararray,tot: long}
+grunt> store res into 'myhdfs1';
+
+grunt> cat myhdfs1/part-r-00000
+f       103000
+m       125000
+____________________________________
+
+
+grunt> describe emp
+emp: {id: int,name: chararray,sal: int,sex: chararray,dno: int}
+grunt> ee = foreach emp generate dno, sal;
+grunt> byDno = group ee by dno;
+grunt> res = foreach byDno generate 
+>>      group as dno, SUM(ee.sal) as tot;
+grunt> store res into 'pdemo/res1';
+
+grunt> ls pdemo/res1
+hdfs://localhost/user/training/pdemo/res1/_logs <dir>
+hdfs://localhost/user/training/pdemo/res1/part-r-00000<r 1>       28
+grunt> cat pdemo/res1/part-r-00000
+11      51000
+12      48000
+13      129000
+grunt> 
+
+grunt> -- single grouping and multiple aggregations
+grunt> res1 = foreach bySex generate
+>>    group as sex, 
+>>     SUM(e.sal) as tot,
+>>    AVG(e.sal) as avg,
+>>    MAX(e.sal) as min,
+>>    MIN(e.sal) as mn,
+>>    COUNT(e) as cnt;
+grunt> dump res1
+(f,103000,20600.0,50000,8000,5)
+(m,125000,25000.0,50000,6000,5)
+
+_________________________________
+
+grunt> -- multi grouping..
+grunt> e = foreach emp generate dno, sex, sal;
+grunt> grp = group e by dno, sex;
+2016-06-09 19:28:35,893 [main] ERROR org.apache.pig.tools.grunt.Grunt - ERROR 1000: Error during parsing. Unrecognized alias sex
+Details at logfile: /home/training/pig_1465437040017.log
+grunt> 
+  above statement is invalid.
+  pig does not allow groping by multiple fields.
+
+  solution:
+   make multiple fields as a tuple field, and group it by tuple.
+
+grunt> grp = group e by (dno, sex);
+grunt> describe grp
+grp: {group: (dno: int,sex: chararray),e: {dno: int,sex: chararray,sal: int}}
+grunt> res = foreach grp generate 
+>>     group.dno, group.sex, SUM(e.sal) as tot; 
+grunt> dump res
+(11,f,25000)
+(11,m,26000)
+(12,f,18000)
+(12,m,30000)
+(13,f,60000)
+(13,m,69000)
+_________________________________
+grunt> -- select sum(sal) from emp;
+grunt> -- old one
+grunt> e = foreach emp generate 'ibm' as org, sal;
+grunt> dump e; 
+
+(ibm,26000)
+(ibm,25000)
+(ibm,13000)
+(ibm,8000)
+(ibm,6000)
+(ibm,10000)
+(ibm,30000)
+(ibm,50000)
+(ibm,10000)
+(ibm,50000)
+
+grunt> grp = group e by org;
+grunt> res = foreach grp generate 
+>>         SUM(e.sal) as tot;
+grunt> dump res
+(228000)
+
+_____________________________________
+
+ 2nd one --- for entire column aggregation.
+
+grunt> describe emp;
+emp: {id: int,name: chararray,sal: int,sex: chararray,dno: int}
+grunt> e = foreach emp generate sal;
+grunt> grp = group e all;
+grunt> dump grp
+
+(all,{(26000),(25000),(13000),(8000),(6000),(10000),(30000),(50000),(10000),(50000)})
+
+grunt> res = foreach grp generate 
+>>     SUM(e.sal) as tot, 
+>>    AVG(e.sal) as avg, MAX(e.sal) as max,
+>>    MIN(e.sal) as min, COUNT(e) as cnt;
+grunt> dump res
+(228000,22800.0,50000,6000,10)
+_____________________________________________
+Assignment:
+
+  describe emp--> id,name,sal,sex,dno
+
+________________________________
+    Marketing A 30
+    marketing   B       40
+     :
+     :
+    Fin  A 50
+     :
+    Fin  D       30
+_________________________
+
+____________________________________________________
+
+Cogroup:
+
+
+
+
+
+
+
+
+
+
+

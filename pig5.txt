@@ -1,0 +1,187 @@
+Tuesday, 14 June 2016
+Pig Lab5
+grunt> ls pdemo/e1
+hdfs://localhost/user/training/pdemo/e1<r 1>    39
+grunt> cat pdemo/e1
+ravi,30000,m
+rani,40000,f
+giri,50000,m
+grunt> cat pdemo/e2
+hari,60000,11
+hara,70000,12
+grunt> e1 = load 'pdemo/e1' using PigStorage(',')
+>>   as (name:chararray, sal:int, sex:chararray);
+grunt> cat pdemo/e2
+hari,60000,11
+hara,70000,12
+grunt> e2 = load 'pdemo/e2' using PigStorage(',')
+>>   as (name:chararray, sal:int ,
+>>    dno:int);
+grunt> ee1 = foreach e1 generate *,0 as dno;
+grunt> describe ee1;
+ee1: {name: chararray,sal: int,sex: chararray,dno: int}
+grunt> 
+grunt> ee2 = foreach e2 generate name,sal,
+>>        '*' as sex, dno;
+grunt> describe ee2
+ee2: {name: chararray,sal: int,sex: chararray,dno: int}
+grunt> e = union ee1, ee2;
+grunt> dump e;
+
+(ravi,30000,m,0)
+(rani,40000,f,0)
+(giri,50000,m,0)
+(hari,60000,*,11)
+(hara,70000,*,12)
+________________________________________
+sql-->
+  select dno , sum(sal) as tot from emp
+     group by dno
+    order by tot desc
+    limit 3;
+
+   ______________________________
+   emp = load 'pdemo/emp' using PigStorage(',')
+    as (id:int, name:chararray, sal:int, 
+     sex:chararray, dno:int);
+
+   e = foreach emp generate dno, sal;
+   grp = group e by dno;
+   res = foreach grp generate 
+       group as dno, SUM(e.sal) as tot;
+   ores = order res by tot desc;
+   top3 = limit ores 3;
+
+     above model is correct , if each dno total salary is unique.
+   if total sal is taken by multiple dno s.
+  you get wrong results.
+
+  solution:  joins/ udfs. 
+
+ ex:
+      15   9L
+      18   9L
+      25   9L
+      30   8L
+      40   7L
+
+    top3;
+      15   9L
+      18   9L
+      25   9L
+    2nd top, 3rd top were missed.
+_________________________________________
+
+Joins examples;
+
+
+[training@localhost ~]$ cat emp
+101,vino,26000,m,11
+102,Sri,25000,f,11
+103,mohan,13000,m,13
+104,lokitha,8000,f,12
+105,naga,6000,m,13
+101,janaki,10000,f,12
+201,aaa,30000,m,12
+202,bbbb,50000,f,13
+203,ccc,10000,f,13
+204,ddddd,50000,m,13
+304,xxx,70000,m,14
+305,yyy,80000,f,15
+[training@localhost ~]$ 
+
+[training@localhost ~]$ cat > dept
+11,marketing,hyd
+12,hr,del
+13,finance,hyd
+20,prod,hyd
+21,admin,chennai
+[training@localhost ~]$ 
+
+[training@localhost ~]$ hadoop fs -copyFromLocal emp pdemo/empl
+[training@localhost ~]$ hadoop fs -copyFromLocal dept  pdemo
+[training@localhost ~]$ 
+
+
+
+ emp = load ' ... '   ----
+ dept = load ' ... '  ------
+
+ ij = join emp by dno, dept by dno;
+ lj = join emp by dno left outer, dept by dno;
+ rj = join emp by dno right outer, dept by dno;
+ fj = join emp by dno full outer, dept by dno;
+
+ dump fj;
+(101,vino,26000,m,11,11,marketing,hyd)
+(102,Sri,25000,f,11,11,marketing,hyd)
+(104,lokitha,8000,f,12,12,hr,del)
+(101,janaki,10000,f,12,12,hr,del)
+(201,aaa,30000,m,12,12,hr,del)
+(103,mohan,13000,m,13,13,finance,hyd)
+(105,naga,6000,m,13,13,finance,hyd)
+(202,bbbb,50000,f,13,13,finance,hyd)
+(203,ccc,10000,f,13,13,finance,hyd)
+(204,ddddd,50000,m,13,13,finance,hyd)
+(304,xxx,70000,m,14,,,)
+(305,yyy,80000,f,15,,,)
+(,,,,,20,prod,hyd)
+(,,,,,21,admin,chennai)
+
+grunt> describe fj
+fj: {emp::id: int,emp::name: chararray,emp::sal: int,emp::sex: chararray,emp::dno: int,dept::dno: int,dept::dname: chararray,dept::loc: chararray}
+grunt> fj2 = foreach fj generate 
+>>         emp::dno as dno1 ,
+>>        dept::dno as dno2,
+>>         emp::sal as sal;
+grunt> describe fj2;
+fj2: {dno1: int,dno2: int,sal: int}
+grunt> 
+
+(11,11,26000)
+(11,11,25000)
+(12,12,8000)
+(12,12,10000)
+(12,12,30000)
+(13,13,13000)
+(13,13,6000)
+(13,13,50000)
+(13,13,10000)
+(13,13,50000)
+(14,,70000)
+(15,,80000)
+(,20,)
+(,21,)
+
+grunt> fj3 = foreach fj2 generate 
+>>      (dno1 is not null and dno2 is not null ?    'Working':(dno1 is not null and dno2 is null ?     'BenchTeam':'BenchProj')) as stat, sal;
+grunt> describe fj3;
+fj3: {stat: chararray,sal: int}
+grunt> dump fj3
+
+(Working,26000)
+(Working,25000)
+(Working,8000)
+(Working,10000)
+(Working,30000)
+(Working,13000)
+(Working,6000)
+(Working,50000)
+(Working,10000)
+(Working,50000)
+(BenchTeam,70000)
+(BenchTeam,80000)
+(BenchProj,)
+(BenchProj,)
+
+grunt> describe fj3
+fj3: {stat: chararray,sal: int}
+grunt> grp = group fj3 by stat;
+grunt> res = foreach grp generate
+>>    group as stat , SUM(fj3.sal) as tot;
+grunt> dump res
+
+(Working,228000)
+(BenchProj,)
+(BenchTeam,150000)
+____________________________________________

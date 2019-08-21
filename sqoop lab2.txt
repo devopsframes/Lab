@@ -1,0 +1,206 @@
+Sqoop Import Examples Lesson 2
+  Bharat Sreeram .  Ventech IT Solutions.
+__________________________________________
+
+[training@localhost ~]$ sqoop import \
+>  --connect jdbc:mysql://localhost/practice  \
+>  --username root  \
+>  --table samp -m 1 --columns name,sal,sal*0.1 \
+>  --target-dir  sqimp7
+
+above import will failed.
+
+ bcoz, sqoop treats  sal*0.1  as column name int the table, but this column is not available, so import is failed.
+
+ in --columns option, we can not give  any arithmetic expressions over the column. can not generate new fields at the time of importing.
+
+ --columns  name,sal,sal*0.1
+
+________________________
+--query option:
+   to retrive executed select statement by rdbms into hadoop.
+
+ any valid select statement is allowed.
+
+for select statement , where clause is mandatory.
+
+for where clause any number of conditions can be given, but $CONDITIONS is mandatory.
+
+$CONDITIONS is boolean variable.
+ with dafault value FALSE.
+
+when all given expressions are valid, 
+  then $CONDITIONS will turn to TRUE.
+
+if it is true, then sqoop submits statement to rdbms. then importing will be started.
+
+
+
+
+
+
+[training@localhost ~]$ sqoop import  --connect jdbc:mysql://localhost/practice   --username root    --query 'select * from samp where $CONDITIONS' -m 1  --target-dir sqimp8
+
+[training@localhost ~]$ hadoop fs -cat sqimp8/part-m-00000
+101,aaaa,10000,m,12
+102,addaaa,20000,f,12
+103,ada,20000,f,13
+104,ada,50000,f,11
+105,addda,70000,m,12
+106,adddda,80000,m,11
+107,xadddda,70000,f,12
+[training@localhost ~]$ 
+
+filtering rows using query:
+
+[training@localhost ~]$ sqoop import  --connect jdbc:mysql://localhost/practice   --username root    --query 'select * from samp where $CONDITIONS and sal>=50000 ' -m 1  --target-dir sqimp9
+
+
+
+
+
+[training@localhost ~]$ hadoop fs -cat sqimp9/part-m-00000
+104,ada,50000,f,11
+105,addda,70000,m,12
+106,adddda,80000,m,11
+107,xadddda,70000,f,12
+[training@localhost ~]$ 
+
+___________
+
+generating new fields at the time of importing.
+
+[training@localhost ~]$ sqoop import  --connect jdbc:mysql://localhost/practice  --username root  --query 'select  name,sal,sal*0.1,sal*0.2,sal+(sal*0.2)-(sal*0.1) from samp where $CONDITIONS'    -m 1  --target-dir  sqimp10 
+
+
+
+[training@localhost ~]$ hadoop fs -cat sqimp10/part-m-00000
+aaaa,10000,1000.0,2000.0,11000.0
+addaaa,20000,2000.0,4000.0,22000.0
+ada,20000,2000.0,4000.0,22000.0
+ada,50000,5000.0,10000.0,55000.0
+addda,70000,7000.0,14000.0,77000.0
+adddda,80000,8000.0,16000.0,88000.0
+xadddda,70000,7000.0,14000.0,77000.0
+[training@localhost ~]$ 
+
+
+
+Note:  
+  --table  and --query are mutually exclusive.
+___________________________________
+
+Merging tables at the time of importing.
+
+[training@localhost ~]$ sqoop import  --connect jdbc:mysql://localhost/practice  --username root  --query 'select * from samp where $CONDITIONS  union all select * from damp where $CONDITIONS'    -m 1 --target-dir sqimp11
+
+
+[training@localhost ~]$ hadoop fs -cat sqimp11/part-m-00000
+101,aaaa,10000,m,12
+102,addaaa,20000,f,12
+103,ada,20000,f,13
+104,ada,50000,f,11
+105,addda,70000,m,12
+106,adddda,80000,m,11
+107,xadddda,70000,f,12
+101,aaaa,10000,m,12
+102,addaaa,20000,f,12
+103,ada,20000,f,13
+104,ada,50000,f,11
+105,addda,70000,m,12
+106,adddda,80000,m,11
+107,xadddda,70000,f,12
+[training@localhost ~]$ 
+
+to eliminate duplicate records use "union" between select statements.
+
+ for each select statement $CONDITIONS is mandatory.
+__________________________________
+
+
+[training@localhost ~]$ sqoop import  --connect jdbc:mysql://localhost/practice  --username root  --query "select * from samp where sex='m' and \$CONDITIONS" -m 1  --target-dir sqimp14
+
+[training@localhost ~]$ hadoop fs -cat sqimp14/part-m-00000
+101,aaaa,10000,m,12
+105,addda,70000,m,12
+106,adddda,80000,m,11
+[training@localhost ~]$ 
+
+most of databases, will allow charecter values in double quotes or single quotes.
+
+ but some databases will restrict you , character values should be  in single quotes,
+in such case, select statement of the query option should be started in double quotes.
+ as per java string .,$ .etc have special meanings. to mask them use
+   \$CONDITIONS
+______________________________
+
+DURING MERGING, if column order is different,
+
+ --query 'select name, sal from tab1 
+   where $CONDITIONS union all 
+     select name, sal from tab2 
+  where $CONDITIONS'
+
+
+ COLUMN ORDER OF both select statements should be same.
+
+_______________________________________
+IF TABLES HAVE different columns...
+
+
+ tab1 ---> id, name, sal, sex, dno, city
+
+ tab2 --> id , name, sal, gender, age, dno
+
+--query  ' select id, name,sal, sex, 0 as age,
+       dno, city from tab1 where $CONDITIONS
+            union all
+      select id , name, sal, gender as sex,age,
+   dno, "***" as city from tab2 
+    where $CONDITIONS'
+
+_____________________________________
+[training@localhost ~]$ sqoop import  --connect jdbc:mysql://localhost/practice  --username root  --query 'select sex, sum(sal)  from samp where $CONDITIONS group by sex' -m 1  --target-dir sqimp15
+
+-- in above case also, there is no involment of reducer, bcoz the query is executed by rdbms,
+ sqoop fetches results of rdbms.. so still mapper only functionality.
+
+In entire sqoop process, "No Reducer Involvement".
+
+___________________________________
+
+ sqoop supports , both etl and elt models.
+
+ for big data(volumes) etl is not recommended.
+
+ first dump all data into hadoop(hdfs),
+ later by using pig/hive/spark/mr perfom transformations, so that processes will happen parallely , transformations will get done fastly.
+
+if table volume is less, for simple transformations,  you can proceed with etl model.
+
+_______________________________________
+
+
+sqoop import can import data from 
+   
+   i) Rdbms to Hdfs
+   ii) rdbms to hive
+   iii) rdbms to hbase
+
+__________________
+
+by default sqoop writes comma (,) delimiter between fields.
+
+to change the delimiter use following option.
+
+  --fields-terminated-by  '\t'
+
+______________________________________
+
+to import data into existed directory .
+
+ use..
+
+    --append
+
+every time, a new file will be generated in the same directory.

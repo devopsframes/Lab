@@ -1,0 +1,182 @@
+sqoop import and export lesson 3
+
+Sqoop import into Hive Tables
+_________________________________
+hive> create table atab(id int , name string,
+    >   sal int, sex string, dno int);
+OK
+Time taken: 2.004 seconds
+hive>
+default database in hive is "default"
+hdfs location of default database
+   /user/hive/warehouse
+when hive table is created, a directory will be created in  warehouse location.
+  ex: table  atab
+   hdfs   /user/hive/warehouse/atab
+
+hive> create table atab(id int , name string,
+    >   sal int, sex string, dno int);
+OK
+Time taken: 2.004 seconds
+[training@localhost ~]$ sqoop import  --connect jdbc:mysql://localhost/practice  --username root  --table samp -m 1  --hive-import --hive-table atab --append
+
+
+
+
+
+hive> select * from atab;
+OK
+101     aaaa    10000   m       12
+102     addaaa  20000   f       12
+103     ada     20000   f       13
+104     ada     50000   f       11
+105     addda   70000   m       12
+106     adddda  80000   m       11
+107     xadddda 70000   f       12
+Time taken: 0.217 seconds
+hive>
+____
+hive> create database testx;
+OK
+Time taken: 0.029 seconds
+hive> use testx
+    > ;
+OK
+Time taken: 0.02 seconds
+hive> create table dummy(a int);
+OK
+Time taken: 0.045 seconds
+hive>
+
+_____________
+[training@localhost ~]$ hadoop fs -ls /user/hive/warehouse/atab
+Found 1 items
+-rw-r--r--   1 training supergroup        146 2016-06-05 19:22 /user/hive/warehouse/atab/part-m-00000
+[training@localhost ~]$ hadoop fs -cat /user/hive/warehouse/atab/part-m-00000
+101 aaaa 10000 m 12
+102 addaaa 20000 f 12
+103 ada 20000 f 13
+104 ada 50000 f 11
+105 addda 70000 m 12
+106 adddda 80000 m 11
+107 xadddda 70000 f 12
+[training@localhost ~]$
+sqoop write two types of delimiters,
+ i) while writing into hdfs,
+   sq writes "," delimiter.
+ ii) while writing into hive tables,
+  sq writes '\001'  delimiter
+    ctrl+A
+ ____________________________
+default delimiter for hive table \001
+if hive table  has different delimiter...
+ how to import?
+
+___________
+hive> create table ctab(id int, name string,
+    >   sal int , sex string, dno int)     
+    > row format delimited
+    >    fields terminated by ',';
+OK
+Time taken: 0.044 seconds
+[training@localhost ~]$ sqoop import  --connect jdbc:mysql://localhost/practice  --username root  --table samp -m 1  --hive-import --hive-table ctab --append
+
+
+
+hive> select * from ctab;
+OK
+NULL    NULL    NULL    NULL    NULL
+NULL    NULL    NULL    NULL    NULL
+NULL    NULL    NULL    NULL    NULL
+NULL    NULL    NULL    NULL    NULL
+NULL    NULL    NULL    NULL    NULL
+NULL    NULL    NULL    NULL    NULL
+NULL    NULL    NULL    NULL    NULL
+Time taken: 0.074 seconds
+hive>
+sqoop has written \001 as delimiter, but table has ',' delimiter.
+   in the backend file (part-m-00000) there are 0 commas. so entire line is treated as single field. but this is string, in table first col is id which int, thats why id became null.
+ there is only one field in files, thats why remaing columns name,sal,sex,dno became null.
+solution.  Delimiter should be changed at the time of importing.
+_______________
+hive> create table dtab like ctab;
+[training@localhost ~]$ sqoop import  --connect jdbc:mysql://localhost/practice  --username root  --table samp -m 1  --hive-import --hive-table dtab --append --fields-terminated-by ','
+hive> select * from dtab;
+OK
+101     aaaa    10000   m       12
+102     addaaa  20000   f       12
+103     ada     20000   f       13
+104     ada     50000   f       11
+105     addda   70000   m       12
+106     adddda  80000   m       11
+107     xadddda 70000   f       12
+Time taken: 0.073 seconds
+hive>
+_______________________________
+[training@localhost ~]$ cat  >   samp1
+100,200,300
+300,600,800
+100,3000,456
+100,456,222
+[training@localhost ~]$ hadoop fs -mkdir  exp
+[training@localhost ~]$ hadoop fs -copyFromLocal samp1 exp
+
+mysql> create table mysamp(a int, b int, c int);
+Query OK, 0 rows affected (0.00 sec)
+mysql> select * from mysamp;
+Empty set (0.00 sec)
+
+[training@localhost ~]$ sqoop export   --connect  jdbc:mysql://localhost/practice  --username root  --table mysamp  --export-dir  exp/samp1
+
+mysql> select * from mysamp;
++------+------+------+
+| a    | b    | c    |
++------+------+------+
+|  100 |  200 |  300 |
+|  300 |  600 |  800 |
+|  100 | 3000 |  456 |
+|  100 |  456 |  222 |
++------+------+------+
+4 rows in set (0.00 sec)
+mysql>
+[training@localhost ~]$ cat > samp2
+10      20      30
+12      34      90
+12      45      67
+[training@localhost ~]$ hadoop fs -copyFromLocal samp2 exp
+[training@localhost ~]$
+[training@localhost ~]$ sqoop export   --connect  jdbc:mysql://localhost/practice  --username root  --table mysamp  --export-dir  exp/samp2 --input-fields-terminated-by '\t'
+exporting hive results into rdbms.
+hive> create table results1(dno int,
+   sex  string, tot int);
+
+hive> insert overwrite table results1                   
+    >   select dno, sex, sum(sal) from dtab
+    >     group by dno, sex; 
+hive> select * from results1;
+OK
+11      f       50000
+11      m       80000
+12      f       90000
+12      m       80000
+13      f       20000
+Time taken: 0.088 seconds
+hive>
+mysql> create table Aggr(dno int , sex char(1),
+    ->    tot int);
+Query OK, 0 rows affected (0.00 sec)
+mysql>
+[training@localhost ~]$ sqoop export   --connect  jdbc:mysql://localhost/practice  --username root  --table Aggr     --export-dir  /user/hive/warehouse/results1/000000_0        --input-fields-terminated-by '\001'
+mysql> select * from Aggr;
++------+------+-------+
+| dno  | sex  | tot   |
++------+------+-------+
+|   11 | f    | 50000 |
+|   11 | m    | 80000 |
+|   12 | f    | 90000 |
+|   12 | m    | 80000 |
+|   13 | f    | 20000 |
++------+------+-------+
+5 rows in set (0.00 sec)
+mysql>
+______________________

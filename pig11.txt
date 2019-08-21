@@ -1,0 +1,261 @@
+Excecuting scripts(pig) :-
+____________________________
+
+   three commands (operators) are used to execute scripts.
+
+
+  i) pig
+  ii) exec.  
+  iii) run.
+
+i) Pig:-
+  
+   to execute script from Command Line(operating sys).
+
+  $ pig  script1.pig
+--> script will be executed, 
+   but relation aliases are not available with grunt shell. so that we  can not reuse them.
+
+ii) exec: 
+
+ --> to execute script from grunt shell.
+ still aliases will not be available with grunt.
+   so "No reuse".
+
+grunt> exec  script1.pig
+
+__________________________________
+
+iii) run:
+
+ ---> to execute script from grunt shell, 
+   Aliases will be available with grunt. So we can reuse them.
+
+grunt> run script1.pig
+______________________________
+
+run:
+  adv --> aliases will be available.
+  disadv --> overriding previous aliases with same name.
+
+exec:
+   adv --> aliases will not be available.
+    so no -0verriding.
+  disadv --> no reusability.
+
+pig :
+  adv ---> 
+      -- used for production operators.
+     --- can be called other evenvironments , like shell script.
+
+ disadv --> aliases will not be reflected into grunt.
+
+_________________________________
+
+Pig Udfs:
+_____________j
+
+   User defined functions.
+
+   adv:
+   i) Custom functionality.
+   ii) Reusabilty .
+
+ Udf life cycle:
+
+step 1) Develop UDF class
+step 2) Export into jar file.
+step 3) register jar file into pig.
+step 4) create temporary function for  the  UDF class.
+step 5) call the function.
+__________________________
+
+[training@localhost ~]$ cat > samp1
+101,ravi
+102,mani
+103,Deva
+104,Devi
+105,AmAr
+[training@localhost ~]$ hadoop fs -copyFromLocal samp1  piglab
+[training@localhost ~]$ 
+
+
+grunt> s = load 'piglab/samp1' 
+>>    using PigStorage(',')
+>>   as (id:int, name:chararray);
+
+eclipse navigations:
+ i) create java project.
+
+ file --> new --> java project.
+  ex: PigDemo
+
+
+ ii) create package>
+
+  pigDemo ---> new ---> package.
+
+
+    ex:    pig.test
+
+
+  iii) configure pig jar.
+
+ src -- build path --> configure build path --> libraries ---> add external jars.
+  
+  /usr/lib/pig/pig-core.jar
+
+
+  iv) create jar class
+
+ pig.test ---> new --> class
+
+   FirstUpper
+
+
+  v)  export into jar.
+
+pigdemo ---> export --> java --java jar --
+    /home/training/Desktop/pigudfs.jar
+
+_____________________
+package pig.test;
+import java.io.IOException;
+
+import org.apache.pig.EvalFunc;
+import org.apache.pig.data.Tuple;
+
+public class FirstUpper  extends EvalFunc<String> 
+{
+  public String   exec(Tuple v) throws IOException
+  {    //   raVI  --> Ravi
+
+     String name = (String)v.get(0);
+   String fc = name.substring(0,1).toUpperCase();
+   String rc = name.substring(1).toLowerCase();
+   String n = fc+rc;
+   return n;
+  }
+
+}
+
+grunt> register  Desktop/pigudfs.jar;
+
+grunt> define cconvert pig.test.FirstUpper();
+
+grunt> r = foreach s generate
+>>       id, cconvert(name) as name;
+
+grunt> dump r;
+
+______________________________
+
+[training@localhost ~]$ cat > f1
+100     200     120
+300     450     780
+120     56      90
+1000    3456    789
+[training@localhost ~]$ hadoop fs -copyFromLocal f1 piglab
+[training@localhost ~]$ 
+
+task:
+  write udf , to find max value for a row.
+
+
+package pig.test;
+
+import java.io.IOException;
+
+import org.apache.pig.EvalFunc;
+import org.apache.pig.data.Tuple;
+
+public class RowMax extends EvalFunc<Integer> 
+{
+ public Integer  exec(Tuple v) throws IOException
+ {
+  int a = (Integer)v.get(0);
+        int b = (Integer)v.get(1);
+        int c = (Integer)v.get(2);
+  int big =0;  
+  if (a>big) big=a;
+  if (b>big) big=b;
+  if (c>big) big=c;
+  return  new Integer(big);
+ }
+
+}
+
+export into jar.
+
+
+    /home/training/Desktop/pigudfs.jar
+
+
+grunt> s1 = load 'piglab/f1' 
+>>     as (a:int, b:int, c:int);
+grunt> register Desktop/pigudfs.jar;
+grunt> define rowmax pig.test.RowMax();
+grunt> r1 = foreach s1 generate  *,
+>>           rowmax(*) as rmax;
+grunt> dump r1
+(100,200,120,200)
+(300,450,780,780)
+(120,56,90,120)
+(1000,3456,789,3456)
+
+[training@localhost ~]$ cat f2
+-10,-30,-56,-23,-21,-5
+1,2,3,45,67,9
+[training@localhost ~]$ hadoop fs -copyFromLocal f2 piglab
+[training@localhost ~]$ 
+
+
+package pig.test;
+
+import java.io.IOException;
+import java.util.List;
+
+import org.apache.pig.EvalFunc;
+import org.apache.pig.data.Tuple;
+
+public class DynRowMax  extends EvalFunc<Integer> 
+{
+ public Integer  exec(Tuple v) throws IOException
+ {
+  List<Object>  olist  =  v.getAll();
+   int max = 0;//  10  30  20
+   int cnt=0;
+   for( Object o : olist){
+       cnt++;
+       int val= (Integer)o;
+       if (cnt==1)  max = val;
+                max = Math.max(val, max);
+   }
+  return new Integer(max);
+ }
+
+}
+
+export into jar   /home/training/Desktop/pigudfs.jar
+
+
+ grunt> register Desktop/pigudfs.jar;
+grunt> define dynmax pig.test.DynRowMax();
+grunt> ss = load 'piglab/f2'    
+>>    using PigStorage(',')
+>>   as (a:int, b:int, c:int, d:int, 
+>>     e:int, f:int);
+grunt> define  rmax pig.test.RowMax();
+grunt> rr = foreach ss generate *,
+>>      dynmax(*) as max;
+grunt> dump rr
+
+
+
+
+
+
+
+
+
+

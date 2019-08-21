@@ -1,0 +1,50 @@
+Pig Lab10 : Quarterly sales Report and comparing sales with Previous Quarter. Cross .
+grunt> raw = load 'piglab/sales'
+>>     using PigStorage(',')
+>>     as (dt:chararray, amt:int);
+grunt> msales = foreach raw generate  
+>>      SUBSTRING(dt,0,2)  as m, amt ; 
+grunt> describe msales;
+msales: {m: chararray,amt: int}
+grunt> msales = foreach msales generate
+>>         (int)m, amt;
+grunt> describe msales;                
+msales: {m: int,amt: int}
+grunt> dump msales;
+
+grunt> qsales = foreach msales generate
+>>       (m<4 ? 1:
+>>         (m<7 ? 2:
+>>           (m<10 ? 3:4))) as q, amt ;
+grunt> dump qsales
+
+grunt> qsales = foreach msales generate
+>>       (m<4 ? 1:
+>>         (m<7 ? 2:
+>>           (m<10 ? 3:4))) as q, amt ;
+grunt> dump qsales
+
+grunt> rep2 = foreach rep generate *;
+grunt> cr = cross rep, rep2;
+grunt> describe cr
+cr: {rep::q: int,rep::tot: long,rep2::q: int,rep2::tot: long}
+grunt> cr = foreach cr generate 
+>>     rep::q as q1, rep2::q as q2,
+>>     rep::tot as tot1, rep2::tot as tot2;
+
+grunt> describe cr;
+cr: {q1: int,q2: int,tot1: long,tot2: long}
+grunt> dump cr;
+
+grunt> fltd = filter cr by ((q1-q2)==1);
+grunt> dump fltd;
+
+grunt> res = foreach fltd generate *,
+>>        ((tot1-tot2)*100)/tot2 as pgrowth;
+grunt> dump res
+
+(3,2,70000,355000,-80)
+(2,1,355000,140000,153)
+(4,3,290000,70000,314)
+
+_________________________________

@@ -1,0 +1,301 @@
+Pig Lab7
+package pig.udfs;
+---
+----
+public  class Concat
+   extends EvalFunc<>
+{
+  public  String  exec(Tuple v)  
+    throws IOException
+  {
+     String fn =(String) v.get(0);
+     String sn =(String) v.get(1);
+    String name = fn+" "+sn;  
+     return name;
+  }
+}
+_____________________________
+
+when java class extended EvalFunc ,. 
+
+the class will get udf functionality.
+
+  the udf code(logic) to be written in 
+
+exec method(function).
+
+ exec has  Tuple variable, to capture 
+
+passed values from function call of 
+
+foreach statement.
+
+ex:
+
+x = foreach y generate fn, sn, 
+   concat(fn,sn) as name;
+
+Tuple variable can hold multiple 
+
+values.
+
+    to get first value.
+
+     v.get(0)
+2nd value ---  v.get(1)...
+______________________________
+ to get all values,
+             v.getAll()
+__________________________________
+
+exec() function is executed for n 
+
+times. n is number of tuples in the 
+
+relation.
+
+_________________________________
+
+steps of udf
+________________
+
+step1) Develop UDF class 
+step2) export class(es) into jar file.
+step3) register jar file in pig.
+step4) create temporary function for 
+
+Pig Udf class.
+step5) call the function.
+_________________________________
+grunt> emp = load 'pdemo/emp'        
+>>    using PigStorage(',') 
+>>   as (id:int, name:chararray, 
+
+sal:int,
+>>     sex:chararray, dno:int);
+grunt> cat pdemo/emp
+101,vino,26000,m,11
+102,Sri,25000,f,11
+103,mohan,13000,m,13
+104,lokitha,8000,f,12
+105,naga,6000,m,13
+101,janaki,10000,f,12
+201,aaa,30000,m,12
+202,bbbb,50000,f,13
+203,ccc,10000,f,13
+204,ddddd,50000,m,13
+grunt> 
+
+task:
+ design udf to convert name into 
+
+uppercase.
+
+
+step1>
+
+ Design udf class.
+
+elipse steps.
+
+create project:
+
+file ---> new  ---> java project.
+    MyUdfs
+
+configure pig jar file:
+
+src ---> build path ---> configure 
+
+build path ---> libraries --> add 
+
+external jar .
+
+   /usr/lib/pig/pig-core.jar 
+
+create package
+
+ src ---> new --> package 
+
+ex:      pig.udfs
+
+create java class.
+  
+ package(pig.udfs) ---> new ---> class
+
+ ex:   ToBigCase
+
+package pig.udfs;
+
+import java.io.IOException;
+
+import org.apache.pig.EvalFunc;
+import org.apache.pig.data.Tuple;
+
+public class ToBigCase extends 
+
+EvalFunc<String>
+{
+    public   String exec(Tuple v)
+     throws IOException
+     {
+     String val =(String) v.get(0);
+     String bname = 
+
+val.toUpperCase();
+     return  bname;
+     }
+}
+
+Step2.
+ Export into jar file.
+
+  project(MyUdfs) --->
+     export --->
+       java --->
+          jar file
+
+    ex:  
+
+/home/training/Desktop/pjars.jar
+
+Step3:
+ Register jar file into pig.
+
+grunt> register Desktop/pjars.jar;
+
+step4: create temporary function.
+
+grunt> define tobig  
+
+pig.udfs.ToBigCase();
+
+step5: call the function.
+
+grunt> 
+
+grunt> describe emp;
+emp: {id: int,name: chararray,sal: 
+
+int,sex: chararray,dno: int}
+grunt> e = foreach emp generate 
+>>    id, tobig(name) as name, sal ,   
+
+
+>>      tobig(sex) as sex, dno;
+grunt> dump e
+
+(101,VINO,26000,M,11)
+(102,SRI,25000,F,11)
+(103,MOHAN,13000,M,13)
+(104,LOKITHA,8000,F,12)
+(105,NAGA,6000,M,13)
+(101,JANAKI,10000,F,12)
+(201,AAA,30000,M,12)
+(202,BBBB,50000,F,13)
+(203,CCC,10000,F,13)
+(204,DDDDD,50000,M,13)
+_____________________________
+Assignment:
+
+comment file:
+
+ hadoop       is    going to be 
+
+platform of all bigdata frames.
+
+
+
+
+
+lines = load 'pdemo/comment' 
+    as (line:chararray);
+
+nlines = foreach lines generate 
+     removeWhiteSp(line) as line;
+
+ expected output:
+   
+  hadoop is going to be .....
+___________________________-
+Assignment 2.
+ top 3 salaries.
+
+[training@localhost ~]$ cat > profiles
+ravi,90000
+rani,90000
+giri,10000
+mani,50000
+siva,50000
+hari,50000
+mani,50000 
+vani,10000
+veni,5000 
+[training@localhost ~]$ hadoop fs -
+
+copyFromLocal profiles pdemo
+[training@localhost ~]$ 
+
+_______________________
+
+Assignment 3.
+
+ make all hyphons  to comma.
+
+
+
+101,aaa,30000-11-hyd,m
+   :
+   :
+109,bbbb,40000-12-del,f
+______________________________
+
+
+
+
+
+
+
+ ex udfs ...  neutral()
+
+public class Neutral extends
+    EvalFunc<String>
+{
+  public String exec(Tuple v) 
+   throws IOException
+  {
+     String val =(String) v.get(0);
+   String nval =   val.replaceAll
+
+("-",",");
+    return nval
+  }
+}
+
+export into -->  pjars.jar.
+
+ register Desktop/pjars.jar;
+
+define  neutral  pig.udfs.Nuetral();
+
+ ds = load 'pdemo/file1' 
+   as (line:chararray);
+
+ nds = foreach ds generate   
+         neutral(line) as line;
+
+     line ---> 101,aaa,3000,11,hyd,m
+     
+ store nds into 'myloc';
+
+ x = load 'myloc/part-m-00000'
+   using PigStorage(",")
+  AS (id:int, name:chararray, sal:int, 
+  dno:int, city:chararray, 
+
+sex:chararray);
+
+______________________________Assignment2 solution is given next post.-----------------
+
+
+

@@ -1,0 +1,370 @@
+Pig Lab2
+
+Load :
+_____
+   used to load data from file to pig relation.
+
+   the file can be from local/hdfs , depends on Pig Start up mode.
+
+ [training@localhost ~]$ cat > file1
+aaaaaaaaa
+aaaaaaaaaaaaa
+aaaaaaaaaaaaaaaaa
+aaaaaaaaaaaaaaaaaaaaa
+[training@localhost ~]$ hadoop fs -copyFromLocal file1 pdemo
+[training@localhost ~]$ 
+
+grunt> ls pdemo
+hdfs://localhost/user/training/pdemo/comment<r 1>88
+hdfs://localhost/user/training/pdemo/file1<r 1> 64
+grunt> s = load 'pdemo/file1' as (line:chararray);
+grunt> describe s
+s: {line: chararray}
+grunt> dump s
+
+Total input paths to process : 1
+(aaaaaaaaa)
+(aaaaaaaaaaaaa)
+(aaaaaaaaaaaaaaaaa)
+(aaaaaaaaaaaaaaaaaaaaa)
+
+if File has multiple fields:-
+
+
+
+[training@localhost ~]$ cat > test1
+100     200     4000
+2000    300     400
+1000    10      100
+1       2       3
+[training@localhost ~]$ hadoop fs -copyFromLocal test1 pdemo
+[training@localhost ~]$ 
+
+grunt> s = load 'pdemo/test1' as 
+>>      (a:int, b:int, c:int);
+grunt> dump s
+
+(100,200,4000)
+(2000,300,400)
+(1000,10,100)
+(1,2,3)
+
+_____________________________________
+
+if file has ',' or any other delimiter..
+
+
+[training@localhost ~]$ cat > test2
+10,20,30
+100,2000,300
+1,20,500
+[training@localhost ~]$ hadoop fs -copyFromLocal test2 pdemo
+[training@localhost ~]$ 
+
+
+grunt> s1 = load 'pdemo/test2' as 
+>>       (a:int, b:int, c:int);
+grunt> dump s1
+
+ Total input paths to process : 1
+(,,)
+(,,)
+(,,)
+
+grunt> s2 = load 'pdemo/test2' as 
+>>     (a:chararray, b:int, c:int);
+grunt> dump s2
+
+(10,20,30,,)
+(100,2000,300,,)
+(1,20,500,,)
+
+in above two cases, pig's default delimiter  tab space.
+  but in file 0 tabs are existed.
+ so entire line is treated as single field.
+
+___________________________________
+
+Pig has two Storage methods.
+
+
+   i) PigStorage()-- is for Text input Format.
+  ii) BinStorage()-- is for sequence input Format.
+                            (Binary)
+
+
+   default is PigStorage().
+
+ for the PigStorage('\t'), tab is default delimiter.
+
+grunt> cat pdemo/test1
+100     200     4000
+2000    300     400
+1000    10      100
+1       2       3
+grunt> s1 = load 'pdemo/test1'        
+>>         using PigStorage('\t') 
+>>       as (a:int, b:int, c:int);
+grunt> s2 = load 'pdemo/test1'        
+>>         using PigStorage()     
+>>       as (a:int, b:int, c:int);
+grunt> s3 = load 'pdemo/test1'        
+>>       as (a:int, b:int, c:int);
+grunt> 
+
+output of s1,s2,s3  is same.
+
+in s2, PigStorage() is applied with out delimiter,
+    \t is applied. (default)
+
+in s3, no storage method is specified, 
+   by default PigStorage() with \t delimiter will be applied.
+
+_______________________________________
+grunt> s4 = load 'pdemo/test1'
+>>      as (a:int, b:int);
+grunt> s5 = load 'pdemo/test1'
+>>      as (a:int, b:int,c:int, d:int);
+grunt> dump s5
+
+in s4, first two fields will be loaded, 3rd field will be skipped.
+
+ in s5,   d field will become null, bcoz no 4th field in the file.
+
+(100,200,4000,)
+(2000,300,400,)
+(1000,10,100,)
+(1,2,3,)
+
+________________________________________________
+
+grunt> cat pdemo/test2
+10,20,30
+100,2000,300
+1,20,500
+grunt> ds = load 'pdemo/test2'
+>>      using PigStorage(',')
+>>    as (a:int, b:int, c:int);
+grunt> dump ds
+
+(10,20,30)
+(100,2000,300)
+(1,20,500)
+
+______________________________________
+
+
+[training@localhost ~]$ cat emp
+101,vino,26000,m,11
+102,Sri,25000,f,11
+103,mohan,13000,m,13
+104,lokitha,8000,f,12
+105,naga,6000,m,13
+101,janaki,10000,f,12
+201,aaa,30000,m,12
+202,bbbb,50000,f,13
+203,ccc,10000,f,13
+204,ddddd,50000,m,13
+[training@localhost ~]$ hadoop fs -copyFromLocal emp pdemo
+[training@localhost ~]$ 
+
+
+grunt> emp = load 'pdemo/emp' 
+>>    using PigStorage(',')
+>>  as (id:int, name:chararray, sal:int,
+>>    sex:chararray, dno:int);
+grunt> illustrate emp
+
+------------------------------------------------------------------------------------------------
+| emp     | id: bytearray | name: bytearray | sal: bytearray | sex: bytearray | dno: bytearray | 
+------------------------------------------------------------------------------------------------
+|         | 101           | vino            | 26000          | m              | 11             | 
+------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+| emp     | id: int | name: chararray | sal: int | sex: chararray | dno: int | 
+------------------------------------------------------------------------------
+|         | 101     | vino            | 26000    | m              | 11       | 
+------------------------------------------------------------------------------
+
+grunt> 
+initially each field is loaded as bytearray,
+  later that will be converted into given data types.
+____________________________________________
+
+Foreach:
+_________
+   i) filtering fields.
+     (subsetting fields)
+
+grunt> describe emp
+emp: {id: int,name: chararray,sal: int,sex: chararray,dno: int}
+grunt> e = foreach emp generate name,sal,dno;
+grunt> describe e;
+e: {name: chararray,sal: int,dno: int}
+grunt> dump e 
+
+(vino,26000,11)
+(Sri,25000,11)
+(mohan,13000,13)
+(lokitha,8000,12)
+(naga,6000,13)
+(janaki,10000,12)
+(aaa,30000,12)
+(bbbb,50000,13)
+(ccc,10000,13)
+(ddddd,50000,13)
+______________________________________
+
+ ii)  generate new fields.
+
+grunt> e2 = foreach emp generate *, 
+>>      sal*0.1 as tax, sal*0.2 as hra,
+>>        sal-tax+hra as net;
+
+  above statement will be failed,
+   new field aliases can not be reused in same statement.
+
+solution:
+
+grunt> e2 = foreach emp generate *,        
+>>      sal*0.1 as tax, sal*0.2 as hra;
+grunt> e2 = foreach e2 generate *,         
+>>            sal-tax+hra as net;
+grunt> dump e2
+(101,vino,26000,m,11,2600.0,5200.0,28600.0)
+(102,Sri,25000,f,11,2500.0,5000.0,27500.0)
+(103,mohan,13000,m,13,1300.0,2600.0,14300.0)
+(104,lokitha,8000,f,12,800.0,1600.0,8800.0)
+(105,naga,6000,m,13,600.0,1200.0,6600.0)
+(101,janaki,10000,f,12,1000.0,2000.0,11000.0)
+(201,aaa,30000,m,12,3000.0,6000.0,33000.0)
+(202,bbbb,50000,f,13,5000.0,10000.0,55000.0)
+(203,ccc,10000,f,13,1000.0,2000.0,11000.0)
+(204,ddddd,50000,m,13,5000.0,10000.0,55000.0)
+
+grunt> store e2 into 'pigRes3'
+>>   using PigStorage(',');
+
+grunt> ls pigRes3
+hdfs://localhost/user/training/pigRes3/_logs    <dir>
+hdfs://localhost/user/training/pigRes3/part-m-00000<r 1>  420
+grunt> cat pigRes3/part-m-00000
+101,vino,26000,m,11,2600.0,5200.0,28600.0
+102,Sri,25000,f,11,2500.0,5000.0,27500.0
+103,mohan,13000,m,13,1300.0,2600.0,14300.0
+104,lokitha,8000,f,12,800.0,1600.0,8800.0
+105,naga,6000,m,13,600.0,1200.0,6600.0
+101,janaki,10000,f,12,1000.0,2000.0,11000.0
+201,aaa,30000,m,12,3000.0,6000.0,33000.0
+202,bbbb,50000,f,13,5000.0,10000.0,55000.0
+203,ccc,10000,f,13,1000.0,2000.0,11000.0
+204,ddddd,50000,m,13,5000.0,10000.0,55000.0
+grunt> 
+
+_________________________________
+
+ iii) changing data types.
+
+grunt> describe e2
+2016-06-08 19:30:30,480 [main] WARN  org.apache.pig.PigServer - Encountered Warning IMPLICIT_CAST_TO_DOUBLE 3 time(s).
+e2: {id: int,name: chararray,sal: int,sex: chararray,dno: int,tax: double,hra: double,net: double}
+grunt> e3 = foreach e2 generate id, name, 
+>>    sal, sex, dno, (int)tax, (int)hra,
+>>        (int)net;
+grunt> describe e3;
+2016-06-08 19:32:01,456 [main] WARN  org.apache.pig.PigServer - Encountered Warning IMPLICIT_CAST_TO_DOUBLE 3 time(s).
+e3: {id: int,name: chararray,sal: int,sex: chararray,dno: int,tax: int,hra: int,net: int}
+grunt> 
+
+__________________________________________________
+iv) renaming fields.
+__________________
+
+   grunt> describe emp
+emp: {id: int,name: chararray,sal: int,sex: chararray,dno: int}
+grunt> e4  = foreach emp generate   
+>>    id as ecode, name , sal as income, 
+>>    sex as gender, dno;
+grunt> describe e4;
+e4: {ecode: int,name: chararray,income: int,gender: chararray,dno: int}
+grunt> 
+
+_________________________________
+
+ v) Conditional transformations:
+
+[training@localhost ~]$ cat > samp1
+100,300
+400,150
+1,5
+5,3
+[training@localhost ~]$ hadoop fs -copyFromLocal samp1 pdemo
+[training@localhost ~]$ 
+
+grunt> x1 = load 'pdemo/samp1' using
+>>    PigStorage(',') as (a:int, b:int);
+grunt> x2 = foreach x1 generate *, 
+>>        (a>b  ?   a:b) as big;
+grunt> dump x2
+
+(100,300,300)
+(400,150,400)
+(1,5,5)
+(5,3,5)
+
+
+
+nested conditions:
+
+[training@localhost ~]$ cat > samp2
+10      34      56
+10      8       2
+12      45      9  
+[training@localhost ~]$ hadoop fs -copyFromLocal samp2 pdemo
+[training@localhost ~]$ 
+
+grunt> xx = load 'pdemo/samp2' 
+>>     as (a:int, b:int, c:int);
+grunt> y = foreach xx generate *,
+>>      (a>b ?   (a>c ? a:c):(b>c ? b:c)) as big;
+grunt> dump y
+
+(10,34,56,56)
+(10,8,2,10)
+(12,45,9,45)
+
+____________________________________
+grunt> e = foreach emp generate 
+>>    id, name, sal , (sal>=70000 ? 'A':
+>>           (sal>=50000 ? 'B':
+>>            (sal>=30000 ? 'C':'D'))) as grade,
+>>    (sex=='m' ? 'Male':'Female') as sex,
+>>  (dno==11 ? 'Mrkt':
+>>    (dno==12 ? 'Hr':
+>>     (dno==13 ? 'Fin':'Others'))) as dname;
+grunt> store e into 'pigRes4';
+
+grunt> ls pigRes4
+hdfs://localhost/user/training/pigRes4/_logs    <dir>
+hdfs://localhost/user/training/pigRes4/part-m-00000<r 1>  271
+grunt> cat pigRes4/part-m-00000
+101     vino    26000   D       Male    Mrkt
+102     Sri     25000   D       Female  Mrkt
+103     mohan   13000   D       Male    Fin
+104     lokitha 8000    D       Female  Hr
+105     naga    6000    D       Male    Fin
+101     janaki  10000   D       Female  Hr
+201     aaa     30000   C       Male    Hr
+202     bbbb    50000   B       Female  Fin
+203     ccc     10000   D       Female  Fin
+204     ddddd   50000   B       Male    Fin
+grunt> 
+
+____________________________________________
+
+vi) copy relation to relation
+
+   e = foreach emp generate *;
+
+_____________________________
+

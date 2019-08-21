@@ -1,0 +1,83 @@
+Hive Lab 11 : Json Array Processing
+[training@localhost ~]$ cat json3
+{"name":"Ravi","qual":["btech","mtech"]}
+{"name":"avani","qual":["btech","mtech","mba"]}
+{"name":"avinash","qual":["btech","mba"]}
+[training@localhost ~]$ 
+hive> create database jsons;
+OK
+Time taken: 1.747 seconds
+hive> use jsons;
+OK
+Time taken: 0.032 seconds
+hive> create table raw(line string);
+OK
+Time taken: 0.382 seconds
+hive>  
+
+hive>  load data local inpath 'json3'
+    >  into table raw;
+
+hive> select * from raw;  
+OK
+{"name":"Ravi","qual":["btech","mtech"]}
+{"name":"avani","qual":["btech","mtech","mba"]}
+{"name":"avinash","qual":["btech","mba"]}
+Time taken: 0.233 seconds
+hive> 
+
+hive> create table raw2(name string, 
+    >   qual  string);
+OK
+Time taken: 0.047 seconds
+hive> insert overwrite table raw2
+    >   select x.* from raw
+    > lateral view
+    >  json_tuple(line,'name','qual') x
+    > as n,q;
+
+hive> select * from raw2;
+OK
+Ravi    ["btech","mtech"]
+avani   ["btech","mtech","mba"]
+avinash ["btech","mba"]
+Time taken: 0.064 seconds
+hive> create table raw3(name string, 
+    >   qual  array<string>);
+OK
+Time taken: 0.037 seconds
+hive> insert overwrite table raw3
+    >   select name, split(qual,',') from raw2;
+
+hive> select * from raw3;
+OK
+Ravi    ["[\"btech\"","\"mtech\"]"]
+avani   ["[\"btech\"","\"mtech\"","\"mba\"]"]
+avinash ["[\"btech\"","\"mba\"]"]
+Time taken: 0.063 seconds
+hive> create table raw4(name string, qual string);
+OK
+
+hive> insert overwrite table raw4
+    >   select name, myq from raw3
+    > lateral view explode(qual) q as myq;
+
+ > create table info(name string, 
+    >    qual string);
+OK
+Time taken: 0.039 seconds
+hive> insert overwrite table info
+    >   select name, split(qual,'"')[1]
+    >  from raw4;
+
+hive> select * from info;
+OK
+Ravi    btech
+Ravi    mtech
+avani   btech
+avani   mtech
+avani   mba
+avinash btech
+avinash mba
+Time taken: 0.065 seconds
+hive> 

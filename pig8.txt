@@ -1,0 +1,185 @@
+Pig Lab8(To get top 3 salary from the list)
+grunt> cat pdemo/profiles
+ravi,90000
+rani,90000
+giri,10000
+mani,50000
+siva,50000
+hari,50000
+mani,50000
+vani,10000
+veni,5000
+grunt> 
+package pig.udfs;
+
+import java.io.IOException;
+
+import org.apache.pig.EvalFunc;
+import org.apache.pig.data.Tuple;
+
+public class MathRank extends EvalFunc<Integer>
+{
+    int prev = 0;
+    int cnt = 0;
+ public Integer  exec(Tuple v)
+    throws IOException
+    {
+    int cv = (Integer) v.get(0);
+    if (cv!=prev) cnt++; 
+  
+  prev = cv;
+    return new Integer(cnt);
+    }
+}
+
+export into --> /home/training/Desktop/pjars.jar
+
+grunt> emp = load 'pdemo/profiles'
+>>    using PigStorage(',')
+>>  as (name:chararray, sal:int);
+grunt> e = order emp by sal desc;
+
+grunt> register  Desktop/pjars.jar;
+grunt> define rank  pig.udfs.MathRank();
+grunt> ee = foreach e generate *, rank(sal) as rank;
+grunt> dump ee
+(ravi,90000,1)
+(rani,90000,1)
+(mani,50000,2)
+(siva,50000,2)
+(hari,50000,2)
+(mani,50000,2)
+(giri,10000,3)
+(vani,10000,3)
+(veni,5000,4)
+_________________________________________
+
+[training@localhost ~]$ cat > test1
+100     345     890
+123     346     340
+340     240     140
+[training@localhost ~]$ hadoop fs -copyFromLocal test1  pdemo
+copyFromLocal: Target pdemo/test1 already exists
+[training@localhost ~]$ hadoop fs -copyFromLocal test1  pdemo/t1
+[training@localhost ~]$ 
+
+
+Udf to find row level max.
+
+package pig.udfs;
+
+import java.io.IOException;
+
+import org.apache.pig.EvalFunc;
+import org.apache.pig.data.Tuple;
+
+public class RowMax extends EvalFunc<Integer> 
+{
+  public Integer exec(Tuple v) throws IOException
+  {
+    int a = (Integer)v.get(0);
+    int b = (Integer)v.get(1);
+    int c = (Integer)v.get(2);
+    int big=0;    // 10 34 5
+    if(a>big) big=a;
+    if(b>big) big=b;
+    if(c>big) big=c;
+   return new Integer(big);
+  }
+}
+
+export into -->   Desktop/pjars.jar
+
+
+
+
+grunt> t1 = load 'pdemo/t1' 
+>>      as (a:int, b:int, c:int);
+grunt> register Desktop/pjars.jar;
+grunt> define rmax pig.udfs.RowMax();
+grunt> r1 = foreach t1 generate *, rmax(*) as rm;
+grunt> dump r1
+
+
+ the above udf fits only for 3 numeric fields.
+________________________
+
+    example of   v.getAll()
+
+
+[training@localhost ~]$ cat > t2
+100     200     400     600     120
+300     450     123     567     678
+[training@localhost ~]$ hadoop fs -copyFromLocal  t2 pdemo
+[training@localhost ~]$ 
+
+package pig.udfs;
+
+import java.io.IOException;
+import java.util.List;
+
+import org.apache.pig.EvalFunc;
+import org.apache.pig.data.Tuple;
+
+public class RMax extends EvalFunc<Integer> 
+{
+  public Integer exec(Tuple v) throws IOException
+  {  
+ List<Object> lobs  =    v.getAll();
+  int max = 0;
+  for(Object  o : lobs)  //  120,456,345,654,600
+  {
+      int val = (Integer)o;
+      max = Math.max(val, max);
+  
+  }
+  
+      
+   return new Integer(max);
+  }
+}
+
+grunt> t2 = load 'pdemo/t2'       
+>>   as (a:int, b:int, c:int, d:int, e:int);
+grunt> register Desktop/pjars.jar;
+grunt> define rmax2 pig.udfs.RMax();
+grunt> r2 = foreach t2 generate * , rmax2(*) as max;
+grunt> dump r2
+
+(100,200,400,600,120,600)
+(300,450,123,567,678,678)
+
+_______________________________________
+
+Handling Unstructured Text.
+
+
+Filtering Dell news.
+
+[training@localhost ~]$ cat > news
+Modi met obama           
+Sonia  went to Usa
+Dell implement big data
+Modi has order 1 lakh Dell laptops for opts
+[training@localhost ~]$ hadoop fs -copyFromLocal  news pdemo
+[training@localhost ~]$ 
+
+grunt> news = load 'pdemo/news'   
+>>    as (line:chararray);
+grunt> dump news
+
+grunt> news2 = foreach news generate *,
+>>     INDEXOF(line,'Dell') as idx;
+grunt> dump news2
+
+(Modi met obama,-1)
+(Sonia  went to Usa,-1)
+(Dell implement big data,0)
+(Modi has order 1 lakh Dell laptops for opts,22)
+grunt> 
+
+
+no we can apply filter to fetch out Dell news.
+ if line contain Dell word,  idx value will be >= 0.
+if not, idx = -1
+

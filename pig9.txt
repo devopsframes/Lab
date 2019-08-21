@@ -1,0 +1,63 @@
+pig lab9 : Language neutralization
+Laguage neutralization.
+
+ ex: hindi to english.
+
+
+[training@localhost ~]$ gedit comments
+[training@localhost ~]$ gedit dictionary
+[training@localhost ~]$ hadoop fs -copyFromLocal comments pdemo
+[training@localhost ~]$ hadoop fs -copyFromLocal dictionary pdemo
+[training@localhost ~]$ 
+
+grunt> comms = load 'pdemo/comments'
+>>     as (line:chararray);
+grunt> dict = load 'pdemo/dictionary'
+>>     using PigStorage(',')
+>>    as (hindi:chararray, eng:chararray);
+grunt> words = foreach comms
+>>    generate FLATTEN(TOKENIZE(line)) as word;
+grunt> 
+
+
+grunt> describe words
+words: {word: chararray}
+grunt> describe dict
+dict: {hindi: chararray,eng: chararray}
+grunt> j = join words by word left outer, 
+>>    dict by hindi;
+grunt> jj = foreach j generate words::word as word, dict::hindi as hindi, dict::eng as eng;
+grunt> dump jj
+(is,,)
+(is,,)
+(is,,)
+(xyz,,)
+(acha,acha,good)
+(bacha,bacha,small)
+(lucha,lucha,worst)
+(hadoop,,)
+(oracle,,)
+____________________
+
+grunt> rset = foreach jj generate 
+>>    (hindi is not null ? eng:word) as word;
+grunt> dump rset
+
+(is)
+(is)
+(is)
+(xyz)
+(good)
+(small)
+(worst)
+(hadoop)
+(oracle)
+
+__________________________
+
+Then we can apply sentiment on this restult set.
+
+__________________________-
+
+
+

@@ -1,0 +1,182 @@
+MR Lab1 : WordCount
+
+
+[training@localhost ~]$ cat > comment
+i love hadoop
+i love java
+i hate coding 
+[training@localhost ~]$ hadoop fs -mkdir mrlab
+[training@localhost ~]$ hadoop fs -copyFromLocal comment mrlab
+[training@localhost ~]$ hadoop fs -cat mrlab/comment
+i love hadoop
+i love java
+i hate coding
+[training@localhost ~]$ 
+
+___________________________
+
+Eclipse steps :
+
+create java project:
+
+file--> new --> java project
+  ex: MyMr
+
+configure jar files.
+
+MyMr--> src --> Build Path --> Configure build Path
+      ---> Libraries ---> add external jar files.
+
+  select folloing jars.
+   /usr/lib/hadoop-*.*/hadoop-core.jar
+  /usr/lib/hadoop-*.*/lib/commons-cli-*.*.jar
+
+create package :
+
+MyMr --> src --> new --> package
+ ex: mr.analytics
+
+create java class :
+
+MyMr --> src --> mr.analytics --> new --> class
+  ex: WordMap
+
+__________________________________
+
+WordMap.java:
+ is a mapper program, which writes word as key and 1 as value.
+----------------------
+package mr.analytics;
+
+import java.io.IOException;
+
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Mapper;
+import java.util.StringTokenizer;
+public class WordMap extends Mapper
+ <LongWritable,Text,Text,IntWritable> 
+{
+     // i love hadoop
+    public void map(LongWritable  k,Text v,
+            Context  con)
+     throws IOException, InterruptedException
+     {
+        String line = v.toString();
+    StringTokenizer t = new StringTokenizer(line);
+     while(t.hasMoreTokens())
+     {
+         String word = t.nextToken();
+         con.write(new Text(word),new IntWritable(1));
+     }
+  }
+}
+--------------------- 
+RedForSum.java
+  is Reducer program, which will give sum aggregation.
+
+----------------------------
+package mr.analytics;
+
+import java.io.IOException;
+
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Reducer;
+
+public class RedForSum extends Reducer
+<Text,IntWritable,Text,IntWritable>
+{
+    //   i   <1,1,1>    
+   public void reduce(Text k,Iterable<IntWritable> vlist,
+            Context con)
+   throws IOException, InterruptedException
+   {
+       int tot=0;
+       for(IntWritable v: vlist)
+          tot+=v.get();
+       con.write(k, new IntWritable(tot));
+   }
+}
+---------------------------
+
+Driver1.java
+
+ is Driver program, to call mapper and reducer
+-----------------
+package mr.analytics;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class Driver1 
+{
+    public static void main(String[] args)
+     throws Exception
+     {
+        Configuration c = new Configuration();
+        Job j = new Job(c,"MyFirst");
+        j.setJarByClass(Driver1.class);
+        j.setMapperClass(WordMap.class);
+        j.setReducerClass(RedForSum.class);
+        j.setOutputKeyClass(Text.class);
+        j.setOutputValueClass(IntWritable.class);
+         Path p1 = new Path(args[0]); //input
+         Path p2 = new Path(args[1]); //output
+        
+FileInputFormat.addInputPath(j,p1);
+FileOutputFormat.setOutputPath(j, p2);
+
+System.exit(j.waitForCompletion(true) ? 0:1);
+  }
+}
+---------------------
+
+Now export all these 3 classes into jar file.
+
+MyMr --> export --> jar -->java jar
+  ex: /home/training/Desktop/myapp.jar
+
+-------------------------------
+
+submitting mr job:
+
+[training@localhost ~]$ hadoop jar Desktop/myapp.jar \
+>  mr.analytics.Driver1 \
+>  mrlab/comment \
+>  mrlab/res1 
+
+[training@localhost ~]$ hadoop fs -ls mrlab/res1
+Found 3 items
+-rw-r--r--   1 training supergroup          0 2016-08-30 05:27 
+
+/user/training/mrlab/res1/_SUCCESS
+drwxr-xr-x   - training supergroup          0 2016-08-30 05:26 
+
+/user/training/mrlab/res1/_logs
+-rw-r--r--   1 training supergroup         58 2016-08-30 05:27 
+
+/user/training/mrlab/res1/part-r-00000
+
+[training@localhost ~]$ hadoop fs -cat mrlab/res1/part-r-00000
+coding  1
+hadoop  1
+hate    1
+i       3
+java    1
+love    2
+
+
+
+
+
+
+
+
+

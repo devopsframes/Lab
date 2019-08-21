@@ -1,0 +1,57 @@
+Pig Lab1 - Word Count
+DataFlow Sample Demo:
+________________________________
+WordCount using Pig.
+________________________________
+
+[training@localhost ~]$ cat > comment
+hadoop is great 
+spark is great
+you are also great
+hadoop and spark combination is great 
+[training@localhost ~]$ hadoop fs -mkdir pdemo
+[training@localhost ~]$ hadoop fs -copyFromLocal comment  pdemo
+[training@localhost ~]$ 
+
+
+grunt> lines = load 'pdemo/comment'  
+>>          as (line:chararray);
+grunt> words = foreach lines generate 
+>>     FLATTEN(TOKENIZE(line)) as word;
+grunt> grp = group words by word;
+grunt> res = foreach grp generate
+>>        group as word, COUNT(words) as cnt;
+grunt> store res into 'pigRes1';
+
+grunt> ls pigRes1         
+hdfs://localhost/user/training/pigRes1/_logs    <dir>
+hdfs://localhost/user/training/pigRes1/part-r-00000<r 1>  69
+grunt> cat pigRes1/part-r-00000
+is      3
+and     1
+are     1
+you     1
+also    1
+great   4
+spark   2
+hadoop  2
+combination     1
+grunt> 
+
+to change delimiter:
+
+ grunt> store res into 'pigRes2' using PigStorage(',');
+
+grunt> ls pigRes2
+hdfs://localhost/user/training/pigRes2/_logs    <dir>
+hdfs://localhost/user/training/pigRes2/part-r-00000<r 1>  
+grunt> cat pigRes2/part-r-00000
+is,3
+and,1
+are,1
+you,1
+also,1
+great,4
+spark,2
+hadoop,2
+combination,1

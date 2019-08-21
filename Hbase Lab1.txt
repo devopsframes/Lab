@@ -1,0 +1,204 @@
+HBase Lab1 : Hbase Shell Commands
+Hbase Shell commands:
+_____________________
+
+ hbase(main):002:0> list
+TABLE                                                     
+Hbemp                                                     
+Hemp                                                      
+hnemp                                                     
+htable                                                    
+htable1                                                   
+raja                                                      
+sample                                                    
+sample1                                                   
+soon                                                      
+stab                                                      
+test                                                      
+test1                                                     
+12 row(s) in 0.0320 seconds
+
+hbase(main):003:0> 
+
+hbase(main):003:0> list 'htable'
+TABLE                                             
+htable                                            
+htable1                                           
+2 row(s) in 0.0200 seconds
+
+hbase(main):004:0> 
+
+hbase(main):005:0> create  'mytab','cf'
+0 row(s) in 1.0690 seconds
+
+hbase(main):006:0> list 'mytab' 
+TABLE                                             
+mytab                                             
+1 row(s) in 0.0580 seconds
+
+hbase(main):007:0> create 'urtab','f1','f2'
+0 row(s) in 1.4660 seconds
+
+hbase(main):008:0> list 'urtab'            
+TABLE                                             
+urtab                                             
+1 row(s) in 0.0640 seconds
+
+hbase(main):009:0> 
+
+hbase(main):002:0> describe 'urtab'
+DESCRIPTION                       ENABLED         
+ {NAME => 'urtab', FAMILIES => [{ true            
+ NAME => 'f1', BLOOMFILTER => 'NO                 
+ NE', REPLICATION_SCOPE => '0', C                 
+ OMPRESSION => 'NONE', VERSIONS =                 
+ > '3', TTL => '2147483647', BLOC                 
+ KSIZE => '65536', IN_MEMORY => '                 
+ false', BLOCKCACHE => 'true'}, {                 
+ NAME => 'f2', BLOOMFILTER => 'NO                 
+ NE', REPLICATION_SCOPE => '0', C                 
+ OMPRESSION => 'NONE', VERSIONS =                 
+ > '3', TTL => '2147483647', BLOC                 
+ KSIZE => '65536', IN_MEMORY => '                 
+ false', BLOCKCACHE => 'true'}]}                  
+1 row(s) in 0.0960 seconds
+
+hbase(main):003:0> 
+
+
+hbase(main):002:0> put 'urtab','r1','f1:a',100 
+0 row(s) in 0.0950 seconds
+
+hbase(main):003:0> put 'urtab','r1','f1:b',100
+0 row(s) in 0.0100 seconds
+
+hbase(main):004:0> put 'urtab','r1','f2:b',200
+0 row(s) in 0.0130 seconds
+
+hbase(main):005:0> put 'urtab','r1','f2:c',300
+0 row(s) in 0.0150 seconds
+
+hbase(main):006:0> put 'urtab','r1','f2:d',500
+0 row(s) in 0.0050 seconds
+
+hbase(main):007:0> 
+
+hbase(main):008:0> put 'urtab','r2','f1:a',5000
+0 row(s) in 0.0100 seconds
+
+hbase(main):009:0> put 'urtab','r2','f1:x',6000
+0 row(s) in 0.0130 seconds
+
+hbase(main):010:0> put 'urtab','r2','f2:b',7000
+0 row(s) in 0.0100 seconds
+
+hbase(main):011:0> put 'urtab','r2','f2:y',8000
+0 row(s) in 0.0110 seconds
+
+hbase(main):012:0> 
+
+hbase(main):014:0> scan 'urtab',{COLUMNS=>'f1:a'}
+ROW           COLUMN+CELL                         
+ r1           column=f1:a, timestamp=1467165821966
+              , value=100                         
+ r2           column=f1:a, timestamp=1467165997467
+              , value=5000                        
+2 row(s) in 0.0240 seconds
+
+hbase(main):015:0> 
+
+hbase(main):022:0> scan 'urtab',{COLUMNS=>['f1:a','f2:y']}
+ROW           COLUMN+CELL                         
+ r1           column=f1:a, timestamp=1467165821966
+              , value=100                         
+ r2           column=f1:a, timestamp=1467165997467
+              , value=5000                        
+ r2           column=f2:y, timestamp=1467166038766
+              , value=8000                        
+2 row(s) in 0.0380 seconds
+
+hbase(main):023:0> 
+
+hbase(main):023:0> scan 'urtab',{COLUMNS=>'f1:'}
+ROW           COLUMN+CELL                         
+ r1           column=f1:a, timestamp=1467165821966
+              , value=100                         
+ r1           column=f1:b, timestamp=1467165828140
+              , value=100                         
+ r2           column=f1:a, timestamp=1467165997467
+              , value=5000                        
+ r2           column=f1:x, timestamp=1467166021078
+              , value=6000                        
+2 row(s) in 0.0250 seconds
+
+hbase(main):024:0> 
+
+
+hbase(main):024:0> get 'urtab','r2'
+COLUMN        CELL                                
+ f1:a         timestamp=1467165997467, value=5000 
+ f1:x         timestamp=1467166021078, value=6000 
+ f2:b         timestamp=1467166032165, value=7000 
+ f2:y         timestamp=1467166038766, value=8000 
+4 row(s) in 0.0230 seconds
+
+hbase(main):025:0> get 'urtab','r1'
+COLUMN        CELL                                
+ f1:a         timestamp=1467165821966, value=100  
+ f1:b         timestamp=1467165828140, value=100  
+ f2:b         timestamp=1467165844182, value=200  
+ f2:c         timestamp=1467165878424, value=300  
+ f2:d         timestamp=1467165900629, value=500  
+5 row(s) in 0.0150 seconds
+
+hbase(main):026:0> 
+
+hbase(main):026:0> get 'urtab','r1','f2:y'
+COLUMN        CELL                                
+0 row(s) in 0.0110 seconds
+
+hbase(main):027:0> get 'urtab','r2','f2:y'
+COLUMN        CELL                                
+ f2:y         timestamp=1467166038766, value=8000 
+1 row(s) in 0.0110 seconds
+
+hbase(main):028:0> get 'urtab','r2','f2:' 
+COLUMN        CELL                                
+ f2:b         timestamp=1467166032165, value=7000 
+ f2:y         timestamp=1467166038766, value=8000 
+2 row(s) in 0.0200 seconds
+
+hbase(main):029:0> 
+
+hbase(main):029:0> get 'urtab','r2',['f1:a','f2:b']
+COLUMN        CELL                                
+ f1:a         timestamp=1467165997467, value=5000 
+ f2:b         timestamp=1467166032165, value=7000 
+2 row(s) in 0.0100 seconds
+
+hbase(main):030:0> 
+
+______________________________
+
+hbase(main):031:0> put 'urtab','r2','f1:x',10000
+0 row(s) in 0.0090 seconds
+
+hbase(main):032:0> get 'urtab','r2'
+COLUMN        CELL                                
+ f1:a         timestamp=1467165997467, value=5000 
+ f1:x         timestamp=1467166686843, value=10000
+ f2:b         timestamp=1467166032165, value=7000 
+ f2:y         timestamp=1467166038766, value=8000 
+4 row(s) in 0.0140 seconds
+
+hbase(main):033:0> 
+
+_________________________________
+
+hbase(main):044:0> delete  'urtab','r2','f1:x'
+0 row(s) in 0.0110 seconds
+
+note:
+  to delete a column family, all columns of the family should be deleted.
+
+ to delete a row, all columns families of the row should be deleted.

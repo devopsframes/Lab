@@ -1,0 +1,193 @@
+Hive Lab7 : Hive Partitioned Tables (A simple Case)
+
+[training@localhost ~]$ cat trans
+01/01/2010,30000
+01/07/2010,40000
+01/08/2010,30000
+01/26/2010,40000
+02/01/2010,30000
+02/07/2010,40000
+02/09/2010,30000
+02/28/2010,40000
+03/01/2010,80000
+03/07/2010,40000
+04/01/2010,30000
+04/17/2010,70000
+04/18/2010,80000
+04/26/2010,90000
+05/01/2010,10000
+05/07/2010,20000
+05/08/2010,30000
+05/26/2010,60000
+06/01/2010,30000
+06/17/2010,50000
+07/01/2010,30000
+07/07/2010,40000
+08/08/2010,10000
+08/26/2010,20000
+09/01/2010,90000
+09/07/2010,40000
+09/18/2010,30000
+09/30/2010,40000
+10/01/2010,30000
+10/07/2010,40000
+10/08/2010,30000
+11/26/2010,40000
+11/01/2010,30000
+12/07/2010,40000
+12/08/2010,30000
+12/26/2010,40000
+[training@localhost ~]$ 
+
+hive> create table sales(dt string, 
+
+amt int)
+    >  row format delimited
+    >   fields terminated by ',';
+OK
+Time taken: 0.046 seconds
+hive> load data local inpath 'trans'
+    >  into table sales;
+Copying data from 
+
+file:/home/training/trans
+Copying file: 
+
+file:/home/training/trans
+Loading data to table cases.sales
+OK
+Time taken: 0.194 seconds
+hive>
+
+ insert overwrite table sales2
+     select * from (
+        select dt, amt from sales
+          union all
+   select concat(substr(dt,1,9),"1") 
+
+as dt,
+    amt+1000 as amt  from sales 
+    union all
+  select concat(substr(dt,1,9),"2") as 
+
+dt,
+  amt+3000  as amt from sales         
+
+union all
+  select concat(substr(dt,1,9),"3") as 
+
+dt,
+  amt+5000 as amt from sales          
+
+union all
+  select concat(substr(dt,1,9),"4") as 
+
+dt,
+   amt+10000 as amt from sales ) x;    
+hive> create table sales02(dt 
+
+array<string>,
+    >     amt int);
+OK
+Time taken: 0.042 seconds
+hive> insert overwrite table sales02
+    >   select split(dt,'/'), amt from 
+
+sales2;
+
+hive> select * from sales02 limit 5;
+OK
+["01","01","2010"]      30000
+["01","01","2013"]      35000
+["01","01","2011"]      31000
+["01","01","2014"]      40000
+["01","01","2012"]      33000
+Time taken: 0.083 seconds
+hive> 
+hive> create table sales3 like sales;
+hive> insert overwrite table sales3
+    >   select concat(dt[2],'-',dt
+
+[0],'-',dt[1]),
+    >  amt from sales02;
+
+hive> create table salespart(dt 
+
+string,
+    >    amt int)      
+    > partitioned by (y int, m int, d 
+
+int) 
+    > row format delimited           
+    >   fields terminated by ',';
+OK
+Time taken: 0.034 seconds
+hive> set 
+
+hive.exec.dynamic.partition=true;
+hive> set 
+
+hive.exec.dynamic.partition.mode=nonst
+
+rict;
+hive> set 
+
+hive.exec.max.dynamic.partitions.perno
+
+de=10000;
+hive> set 
+
+hive.exec.max.dynamic.partitions=10000
+
+0;
+
+
+hive> insert overwrite table salespart
+      partition(y,m,d)
+      select dt, amt, year(dt), month
+
+(dt),
+       day(dt) from sales3;
+
+-- to access a perticular day
+
+hive> select * from salespart
+   where y=2010 and m=1 and d=8; --> 1 
+
+part
+
+-- to access a perticular month.
+hive> select * from salespart
+   where y=2010 and m=1; ---> 31 parts
+
+-- to access a year.
+
+hive> select * from salespart
+   where y=2014; ---> 366 part
+
+---> range of dates.
+Hive> select * from salespart
+   where (y=2002 and m>=5)
+             or
+         (y>2002 and y<2009)
+              or
+         (y=2009 and m<=6);
+
+______________________________________
+
+___
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+________________________________
